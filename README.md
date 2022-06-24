@@ -1,5 +1,5 @@
 # gcrta-board
-Your very own live-update LED transit departure board in Cleveland
+Your very own real-time LED transit departure board in Cleveland.
 
 ### This project is an adaptation of the [dc-metro](https://github.com/metro-sign/dc-metro) transit arrival board for Greater Cleveland Regional Transit Authority.
 
@@ -10,4 +10,6 @@ Steps are:
 2. Bootload CircuitPython with the .uf2 in this repository
 3. Copy all /src content to the flash memory of the MP
 4. Customize routes to fetch (directions and background info on how to coming soon)
-4. Customize route colors (need to make this all in the configuration file to be easier)
+5. Customize route colors (need to make this all in the configuration file to be easier)
+
+![Example photo](/img/Example1.jpg)
