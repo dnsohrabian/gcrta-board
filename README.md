@@ -41,9 +41,9 @@ The board should mount onto your computer as a storage volume, most likely named
     - If something goes wrong, refer to the [Adafruit Documentation](https://learn.adafruit.com/adafruit-matrixportal-m4/install-circuitpython).
 ### Adding the project code
 
-4. Drag (copy) the `lib/` folder from this repository onto *CIRCUITPY* drive.
+4. Drag (copy) the `/lib` folder from this repository onto *CIRCUITPY* drive.
    - Holds dependencies and libraries from Adafruit. They could require updates eventually.
-5. Drag (copy) all the individual Python files in `src/` onto *CIRCUITPY* drive.
+5. Drag (copy) all the individual Python files in `/src` onto *CIRCUITPY* drive.
    - These are the main project source code
      - code.py
      - api.py
