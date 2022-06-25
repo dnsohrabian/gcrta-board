@@ -11,19 +11,19 @@ network_reset = 1 # minutes before starting network
 
 routes = config['routes']
 
-
+# TODO remove when confirm dict passing color works
 # manual edit of route colors for now; conditionals must match your route names in config
-def fetch_line_color(route_name: str) -> int:
-    if route_name == '22':
-        return 0x0011aa  # hex color format, begins with 0x
-    elif route_name == '45':
-        return 0xa81995
-    elif route_name == '71':
-        return 0x22cf19
-    elif route_name == '26':
-        return 0xde4e00
-    else:
-        return 0xFF0000
+# def fetch_line_color(route_name: str) -> int:
+#     if route_name == '22':
+#         return 0x0011aa  # hex color format, begins with 0x
+#     elif route_name == '45':
+#         return 0xa81995
+#     elif route_name == '71':
+#         return 0x22cf19
+#     elif route_name == '26':
+#         return 0xde4e00
+#     else:
+#         return 0xFF0000
 
 
 class RealTimeAPI:
@@ -42,7 +42,7 @@ class RealTimeAPI:
         print("Finished round of fetch predictions.")
         return sorted(results, key= lambda x: int(x['arrival'].split(',')[0])) # sort by the next arrival for each
 
-    def fetch_route(self, route_name: str, route_params: dict) -> dict:
+    def fetch_route(self, route_name: str, route_color: int, route_params: dict) -> dict:
         payload = route_params
         hdrs = {'Content-Type': 'application/json',
          'Accept': 'application/json',
@@ -95,9 +95,6 @@ class RealTimeAPI:
                     last_2 = list(map(str,predictions[:2]))
                     prediction = ','.join(last_2) if predictions else None # output 2
 
-                    # get line color with helper based on route number, output 1
-                    line_color = fetch_line_color(route_name)
-
                     # final output of dict
                     destination = crossings[0]['destination']
                     tokens = destination.split(' ')
@@ -108,7 +105,7 @@ class RealTimeAPI:
                         destination = ' '.join(tokens[1:]).strip('- ')
 
                     return {
-                        'line_color': line_color, # output 1
+                        'line_color': route_color, # output 1
                         'route_name': str(route_name), # output 2
                         'destination': '',  # output 3, coded to be off by preference, too busy on board
                         'arrival': prediction, # output 4

@@ -11,12 +11,16 @@ key in each route.
 # These are dicts of POST payload data for specific transit stops. The transit authority API uses this structure.
 
 route_1 = {'route_name': '22',
+           'route_color': 0x0011aa,
            'params': {'routeID': 139, 'directionID': 3, 'stopID': 13363, 'tpID': 0, 'useArrivalTimes': 'false'}}
 route_2 = {'route_name': '45',
+           'route_color': 0xa81995,
            'params': {'routeID': 60, 'directionID': 5, 'stopID': 12925, 'tpID': 0, 'useArrivalTimes': 'false'}}
 route_3 = {'route_name': '26',
+           'route_color': 0x22cf19,
            'params': {'routeID': 165, 'directionID': 3, 'stopID': 1342, 'tpID': 0, 'useArrivalTimes': 'false'}}
 route_4 = {'route_name': '71',
+           'route_color': 0xde4e00,
            'params': {'routeID': 193, 'directionID': 5, 'stopID': 1342, 'tpID': 0, 'useArrivalTimes': 'false'}}
 # you can feasibly add as many as you like but the board can only show 3 at a time and the network requests take time
 
