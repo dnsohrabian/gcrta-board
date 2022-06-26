@@ -1,13 +1,13 @@
-# gcrta-board
-`A real-time LED transit departure board for Clevelanders`
+# gcrta-board 
+`A real-time LED transit arrival board for Clevelanders`
 
 This project is a modded Cleveland version of the [dc-metro](https://github.com/metro-sign/dc-metro) transit board.
 It uses the same hardware and general display, with capability to poll the [Greater Cleveland Regional Transit Authority](http://www.riderta.com/)
-live trip updates by itself and a clock ⌚.
+live trip updates and ⌚.
 
 It uses a friendly version of Micropython (which is Python meant for
-embedded devices) called CircuitPython. CP is developed by the makers of the board, [Adafruit](https://www.adafruit.com/). They make 
-all kinds of educational and hobby electronics/coding products, provide great resources and community spaces. Check em out.
+embedded devices) called CircuitPython. CP is developed by the makers of the hardware, [Adafruit](https://www.adafruit.com/), who makes and sells 
+educational and hobby electronics/coding products, provides great resources and is woman-owned in NYC. Check em out.
 
 ![Example photo](/img/Example1.jpg)
 
@@ -44,33 +44,64 @@ The board should mount onto your computer as a storage volume, most likely named
 4. Drag (copy) the `/lib` folder from this repository onto *CIRCUITPY* drive.
    - Holds dependencies and libraries from Adafruit. They could require updates eventually.
 5. Drag (copy) all the individual Python files in `/src` onto *CIRCUITPY* drive.
-   - These are the main project source code
-     - code.py
-     - api.py
-     - train_board.py
-     - time_set.py
-     - config.py
-     - secrets.py
-6. The moment you drag these the board will attempt (and fail) to connect to internet.
+
+At this point your *CIRCUITPY* drive should look like:
+```
+I:\
+│   code.py
+│   train_board.py
+│   config.py
+│   api.py
+│   secrets.py
+│   time_set.py
+│
+└───/lib including all files
+```
 
 ### Internet and Adafruit IO config
 
-7. To connect to the internet, you need to open *secrets.py* and add your wifi ssid and password to respective `secrets` dict keys.
-8. The project needs accurate time to both 1) calculate the arrival minutes and 2) display a clock that verifies
-the board is current.<br>
-The board has a clock chip that can track time fairly well once it's set. But it needs to connect to a service
-to fetch the time, and periodically sync the time to keep updates accurate. It is a transit board after all...
-9. The *time_set.py* module has a function `get_local_time` that automatically syncs the on-board clock using an online feed provided by
-Adafruit through [adafruitio](https://io.adafruit.com/). It's free and there to support hobby projects. Register for an
-account and get a username and API key.
-10. Add your aio username and API key to the `secrets` dict in *secrets.py*.
+7. To connect to  internet, you need to open *secrets.py* and add your wifi ssid and password to respective `secrets` dict keys.
+8. **Register for an [adafruitio](https://io.adafruit.com/) account and get a username and API key.**
+The board needs to regularly synchronize its onboard clock using a free time service through adafruit io. It's free and there to support hobby projects. 
+9. Add your aio username and API key to the `secrets` dict in *secrets.py*.
 
 ### Transit board config
 
-11. At this point, the board should reload and start showing you routes!  
-But you want it to show the stops/routes/direction that you choose. You manage this along with colors & other options
-in the *config.py* file using the `config` dict object and `routes` objects.
-12. Each route requires a dict object to be added. There are 3 keys per route
+The board should reload and start showing you default routes!
+
+You customize the routes to grab, and other options, in the *config.py*.
+12. Each route/stop/direction combination requires a dict with these 3 key:values.
     - route_name: *str*, used as a label, like "26" or "HL"
     - route_color: *int*, provide as hex color code in format like *0xff0000* which is red.This deterimnes the route color bar
-    - params: *dict* 
+    - params: *dict*, the GCRTA Next Connect API request, info below 
+      - 'routeID': ⚠ *Get from NextConnect*
+      - 'directionID': ⚠ _Get from NextConnect_
+      - 'stopID': ⚠ _Get from NextConnect_
+      - 'tpID': 0,
+      - 'useArrivalTimes': 'false'
+
+
+Each route dict like above represents a single route at a single stop going one direction.
+
+**The board can only fit 3 rows on it.** If you are fetching more than 3 routes, it will display the 3
+soonest arrivals in order of their arrival
+
+### Gettings `params` from GCRTA NextConnect
+
+13. Go to [GCRTA NextConnect Live Departure Times](http://nextconnect.riderta.com/LiveDepartureTimes). This is an endpoint that delivers
+live departure updates from RTA's TransitMaster system, which is the brains of RTA's operations, including scheduling, and 
+serving the RTA real time feed that is used by Google Maps and Transit App, etc.  The board essentially simulates using this website.
+14. For each route/direction/stop combo, you need to:
+    1. Enter the desired route, direction, and stop.
+    2. Open devtools for your browser (Ctrl + Shift + I) --*Chrome is recommended if you aren't familiar with this*
+    3. Go to "Network" tab
+    4. Wait up to 15 seconds for the browser to fetch the update again (it automatically does this)
+    5. You should see a network action appear called *getStopTimes*. Click on it
+    6. Click on *Payload*
+    7. Use the parameters from that payload to fill out the `params` dict in the desired route dict.
+
+### Watch the board update
+
+15. Upon saving, the board will reboot and start to populate with your configured route/direction/stops. 🎉🎉🎉
+
+🚌🚌🚌

@@ -142,8 +142,9 @@ class Train:
         self.route_label.text = route[:3]
 
     def set_destination(self, destination: str):
-        self.destination_label.text = destination[:config['destination_max_characters']]
-        # self.destination_label.text = destination
+        self.destination_label.text = ''  # setting destination to empty because the full destination makes the board
+        # too busy. Considering adding an Inbound (I) Outbound (O) letter after route name instead
+        # may add an option to add scrolling text later
 
     def set_arrival_time(self, minutes: str):
         minutes_len = len(minutes)

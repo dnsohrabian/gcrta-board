@@ -32,7 +32,7 @@ class RealTimeAPI:
     def fetch_predictions(self, routes: list = routes) -> list:
         results = []
         for route in routes:
-            update = self.fetch_route(route['route_name'], route['params'])
+            update = self.fetch_route(route['route_name'], route['route_color'], route['params'])
             time.sleep(1)
             if not update:
                 continue
