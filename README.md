@@ -31,7 +31,7 @@ educational and hobby electronics/coding products, provides great resources and 
 The board should mount onto your computer as a storage volume, most likely named _MATRIXBOOT_.
 3. Flash your _Matrix Portal_ with the provided version of CircuitPython
     - In CircuitPython 7.3, there is a flaw that freezes when getting data from the internet.
-    - ***For now you need to use the custom *.uf2* file from this project root***.  
+    - ***For now you need to use the custom *.uf2* file in this project root***.  
     It is a version of CircuitPython that
       @dhalbert, one of the CP developers, made as a temporary workaround
     - In version 8 & onwards, the issue should be resolved and you will 
@@ -41,7 +41,7 @@ The board should mount onto your computer as a storage volume, most likely named
     - If something goes wrong, refer to the [Adafruit Documentation](https://learn.adafruit.com/adafruit-matrixportal-m4/install-circuitpython).
 ### Adding the project code
 
-4. Drag (copy) the `/lib` folder from this repository onto *CIRCUITPY* drive.
+4. Drag (copy) the `src/lib` folder from this repository onto *CIRCUITPY* drive.
    - Holds dependencies and libraries from Adafruit. They could require updates eventually.
 5. Drag (copy) all the individual Python files in `/src` onto *CIRCUITPY* drive.
 
@@ -55,7 +55,7 @@ I:\
 │   secrets.py
 │   time_set.py
 │
-└───/lib including all files
+└───/lib -including all files in it
 ```
 
 ### Internet and Adafruit IO config
