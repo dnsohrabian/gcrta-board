@@ -67,16 +67,17 @@ The board needs to regularly synchronize its onboard clock using a free time ser
 
 ### Transit board config
 
-The board should reload and start showing you default routes!
+The board should reload and start showing you default routes!  
 
-You customize the routes to grab, and other options, in the *config.py*.
+You customize the routes to grab, and other options, in the *config.py*.  
+
 12. Each route/stop/direction combination requires a dict with these 3 key:values.
     - route_name: *str*, used as a label, like "26" or "HL"
     - route_color: *int*, provide as hex color code in format like *0xff0000* which is red.This deterimnes the route color bar
-    - params: *dict*, the GCRTA Next Connect API request, info below 
-      - 'routeID': ⚠ *Get from NextConnect*
-      - 'directionID': ⚠ _Get from NextConnect_
-      - 'stopID': ⚠ _Get from NextConnect_
+    - params: *dict*, the GCRTA Next Connect API request, info below:  
+      - 'routeID': ⚠ *Get from NextConnect*  
+      - 'directionID': ⚠ _Get from NextConnect_  
+      - 'stopID': ⚠ _Get from NextConnect_  
       - 'tpID': 0,
       - 'useArrivalTimes': 'false'
 
