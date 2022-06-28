@@ -52,7 +52,8 @@ config = {
     'text_padding': 3,
     'text_color': 0xFF7500,
     'dest_color': 0xFF7500,
-    'not_live_flag': False,  # adds asterisk after minute if update is scheduled and no live update return by API
+    'not_live_flag': False,  # adds character after minute if update is scheduled and not live (static)
+    'live_char': '.',  # character to use to flag if a static update
 
     'loading_route_text': '--',
     'loading_destination_text': '---',
