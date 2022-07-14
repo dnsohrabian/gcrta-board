@@ -58,7 +58,9 @@ while True:
             counter = 0
         except Exception as e:
             print("Time sync error.")
-    t.refresh() # main train board refresh
+    t.loading_dot_grp.hidden = False
+    t.refresh()  # main train board refresh
+    t.loading_dot_grp.hidden = True
     begin =time.monotonic()
     while time.monotonic()-begin <30:
         # for row in t.trains[:3]:

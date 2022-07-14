@@ -50,7 +50,7 @@ config = {
     'character_width': 5,
     'character_height': 7,
     'text_padding': 3,
-    'text_color': 0xFF7500,
+    'text_color': 0x552200,
     'dest_color': 0xFF7500,
     'not_live_flag': False,  # adds character after minute if update is scheduled and not live (static)
     'live_char': '.',  # character to use to flag if a static update
