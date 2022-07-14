@@ -18,7 +18,7 @@ class RealTimeAPI:
         results = []
         for route in routes:
             update = self.fetch_route(route['route_name'], route['route_color'], route['params'])
-            time.sleep(1)
+            time.sleep(.5)
             if not update:
                 continue
             results.append(update)

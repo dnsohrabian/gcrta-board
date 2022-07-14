@@ -1,7 +1,7 @@
 import displayio
 import time
 from adafruit_display_shapes.rect import Rect
-from adafruit_display_text.label import Label
+from adafruit_display_text.bitmap_label import Label
 from adafruit_display_text.scrolling_label import ScrollingLabel
 from adafruit_matrixportal.matrix import Matrix
 
@@ -21,13 +21,18 @@ class TrainBoard:
     """
     def __init__(self, get_new_data):
         self.get_new_data = get_new_data
-        self.matrix = Matrix(bit_depth=4)
+        self.matrix = Matrix(bit_depth=3)
         self.display = self.matrix.display
         # self.display.auto_refresh = False
 
         # create parent group for entire display relative positioning
         self.parent_group = displayio.Group()
 
+        # loading indicator
+        self.loading_dot = Rect(width=2, height=2, x=0,y=0, fill=0x000055)
+        self.loading_dot_grp = displayio.Group(x=61,y=29)
+        self.loading_dot_grp.append(self.loading_dot)
+        self.parent_group.append(self.loading_dot_grp)
         # setup header row showing LINE DESTINATION MINUTES
         self.heading_label = Label(x=0, y=0, font=config['time_font'], anchor_point=(0,0), anchored_position= (0,0))
         self.heading_label.color = config['heading_color']
