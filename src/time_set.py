@@ -5,7 +5,7 @@ import rtc
 import time
 
 time_format = "%Y-%m-%d %H:%M:%S.%L %j %u %z %Z"
-location = config['timezone']
+time_zone = config.get('timezone',None)
 
 TIME_SERVICE = (
     "https://io.adafruit.com/api/v2/%s/integrations/time/strftime?x-aio-key=%s"
@@ -20,7 +20,7 @@ def url_encode(url):
     url = url.replace(":", "%3A")
     return url
 
-def get_strftime(time_format= time_format, location=location):
+def get_strftime(time_format= time_format, location=time_zone):
     """
     Fetch a custom strftime relative to your location.
     :param str location: Your city and country, e.g. ``"America/New_York"``.
@@ -66,13 +66,13 @@ def get_strftime(time_format= time_format, location=location):
     return reply
 
 
-def get_local_time(location=None):
+def get_local_time(loc=time_zone):
     # pylint: disable=line-too-long
     """
     Fetch and "set" the local time of this microcontroller to the local time at the location, using an internet time API.
     :param str location: Your city and country, e.g. ``"America/New_York"``.
     """
-    reply = get_strftime(time_format, location=location)
+    reply = get_strftime(time_format, location=loc)
     if reply:
         times = reply.split(" ")
         the_date = times[0]

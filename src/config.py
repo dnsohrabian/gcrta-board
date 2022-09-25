@@ -12,19 +12,28 @@ key in each route.
 
 route_1 = {'route_name': '22',
            'route_color': 0x0011aa,
-           'params': {'routeID': 139, 'directionID': 3, 'stopID': 13363, 'tpID': 0, 'useArrivalTimes': 'false'}}
+           'params': {'routeID': 139, 'directionID': 3, 'stopID': 13363, 'tpID': 0, 'useArrivalTimes': 'false'},
+           'cutoff': 5}
 route_2 = {'route_name': '45',
            'route_color': 0xa81995,
-           'params': {'routeID': 60, 'directionID': 5, 'stopID': 12925, 'tpID': 0, 'useArrivalTimes': 'false'}}
+           'params': {'routeID': 60, 'directionID': 5, 'stopID': 12925, 'tpID': 0, 'useArrivalTimes': 'false'},
+           'cutoff': 5}
 route_3 = {'route_name': '26',
            'route_color': 0x22cf19,
-           'params': {'routeID': 165, 'directionID': 3, 'stopID': 1342, 'tpID': 0, 'useArrivalTimes': 'false'}}
+           'params': {'routeID': 165, 'directionID': 3, 'stopID': 1342, 'tpID': 0, 'useArrivalTimes': 'false'},
+           'cutoff': 5}
 route_4 = {'route_name': '71',
            'route_color': 0xde4e00,
-           'params': {'routeID': 193, 'directionID': 5, 'stopID': 1342, 'tpID': 0, 'useArrivalTimes': 'false'}}
+           'params': {'routeID': 193, 'directionID': 5, 'stopID': 1342, 'tpID': 0, 'useArrivalTimes': 'false'},
+           'cutoff': 5}
+route_5 = {'route_name': 'RL-E',
+           'route_color': 0xdd0000,
+           'params': {'routeID': 147, 'directionID': 3, 'stopID': 16125, 'tpID': 919, 'useArrivalTimes': 'false'},
+           'cutoff': 15}
+           
 # you can feasibly add as many as you like but the board can only show 3 at a time and the network requests take time
 
-routes = [route_1, route_2, route_3, route_4]
+routes = [route_1, route_2, route_3, route_4, route_5]
 
 config = {
     #########################
@@ -61,7 +70,7 @@ config = {
     'loading_line_color': 0xFF00FF,  # purple
     'loading_time_msg': 'ride rta',
 
-    'heading_text': 'RTE      MINUTES',
+    'heading_text': 'RTE    DEPARTING',
     'heading_color': 0x550000,  # red
 
     'train_line_height': 6,
