@@ -17,7 +17,7 @@ class RealTimeAPI:
     def fetch_predictions(self, routes: list = routes) -> list:
         results = []
         for route in routes:
-            update = self.fetch_route(route['route_name'], route['route_color'], route['params'])
+            update = self.fetch_route(route['route_name'], route['route_color'], route['params'], route['cutoff'])
             time.sleep(.5)
             if not update:
                 continue
@@ -27,7 +27,7 @@ class RealTimeAPI:
         results = sorted(results, key=lambda x: int(x['arrival'].split(',')[0].strip(config['live_char'])))  # sort by the next arrival for each route/dir/stop
         return results
 
-    def fetch_route(self, route_name: str, route_color: int, route_params: dict) -> dict:
+    def fetch_route(self, route_name: str, route_color: int, route_params: dict, route_cutoff: int) -> dict:
         payload = route_params
         hdrs = {'Content-Type': 'application/json',
          'Accept': 'application/json',
@@ -78,7 +78,7 @@ class RealTimeAPI:
                         predictions.append(arrival_in)
 
                     # filter out all before our cutoff time of choice
-                    predictions = list(filter(lambda x: int(x.strip(config['live_char'])) >= config['cutoff_min'], predictions))
+                    predictions = list(filter(lambda x: int(x.strip(config['live_char'])) >= route_cutoff, predictions))
                     # grab next 2 departs
                     last_2 = predictions[:2]
                     prediction = ','.join(last_2) if predictions else None  # output 2
