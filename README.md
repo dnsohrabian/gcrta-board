@@ -26,56 +26,42 @@ educational and hobby electronics/coding products, provides great resources and 
 ## Setup Overview
 ### Hardware and CircuitPython setup
 
-1. [Prep the *MatrixPortal* and LED board](https://learn.adafruit.com/adafruit-matrixportal-m4/prep-the-matrixportal) using Adafruit's guide
-2. Connect the board to your computer using a USB C cable. Double click the button on the board labeled _RESET_.
-The board should mount onto your computer as a storage volume, most likely named _MATRIXBOOT_.
-3. Flash your _Matrix Portal_ with the provided version of CircuitPython
-    - In CircuitPython 7.3, there is a flaw that freezes when getting data from the internet.
-    - ***For now you need to use the custom *.uf2* file in this project root***.  
-    It is a version of CircuitPython that
-      @dhalbert, one of the CP developers, made as a temporary workaround
-    - In version 8 & onwards, the issue should be resolved and you will 
-      want to download CircuitPython loader [from Adafruit](https://circuitpython.org/board/matrixportal_m4/).
-    - Drag the downloaded _.uf2_ file into the root of the _MATRIXBOOT_ volume.
-    - The board will automatically flash the version of CircuitPython and remount as _CIRCUITPY_.
-    - If something goes wrong, refer to the [Adafruit Documentation](https://learn.adafruit.com/adafruit-matrixportal-m4/install-circuitpython).
-### Adding the project code
+1. [Prep the MatrixPortal and LED board](https://learn.adafruit.com/adafruit-matrixportal-m4/prep-the-matrixportal) using Adafruit's guide.
+2. [Install CircuitPython.](https://learn.adafruit.com/adafruit-matrixportal-m4/install-circuitpython) Click "Download .UF2 Now" and follow steps.
+### Adding the gcrta-board  code
 
-4. Drag (copy) the `src/lib` folder from this repository onto *CIRCUITPY* drive.
-   - Holds dependencies and libraries from Adafruit. They could require updates eventually.
-5. Drag (copy) all the individual Python files in `/src` onto *CIRCUITPY* drive.
+3. Drag (copy) the `src/lib` folder from this repository onto *CIRCUITPY* drive.
+5. Drag (copy) all the individual Python files inside `/src` onto *CIRCUITPY* drive. Do not copy the folder itself.
 
 At this point your *CIRCUITPY* drive should look like:
 ```
 I:\
-│   code.py
-│   train_board.py
-│   config.py
 │   api.py
+|   code.py
+│   config.py
 │   secrets.py
 │   time_set.py
+│   train_board.py
 │
-└───/lib -including all files in it
+└───\lib folder, including all files in it
 ```
-
 ### Internet and Adafruit IO config
 
-7. To connect to  internet, you need to open *secrets.py* and add your wifi ssid and password to respective `secrets` dict keys.
-8. **Register for an [adafruitio](https://io.adafruit.com/) account and get a username and API key.**
-The board needs to regularly synchronize its onboard clock using a free time service through adafruit io. It's free and there to support hobby projects. 
-9. Add your aio username and API key to the `secrets` dict in *secrets.py*.
+6. To connect to  internet, you need to open *secrets.py* and add your wifi ssid and password to respective `secrets` dict keys that say `"enter_your_info"`.
+7. Register for an [adafruitio](https://io.adafruit.com/) account and get a username and API key.
+The board needs to regularly synchronize its onboard clock using a free time service through adafruit io. It's free and intended to support hobby projects.
+8. Add your aio username and API key to the `secrets` dict in *secrets.py*.
 
-### Transit board config
+## Transit board config
 
-The board should reload and start showing you default routes!  
+The board should reload and start showing you default routes! You now need to configure it to your liking. 
 
-You customize the routes to grab, and other options, in the *config.py*.  
+### Customize your stops in the *config.py*.  
 
-12. Each route/stop/direction combination requires a dict with these 3 key:values. 
-    The 3rd key is a nested dictionary object with 6 key-values.
-    - route_name: *str*, used as a label, like "26" or "HL"
-    - route_color: *int*, provide as hex color code in format like *0xff0000* which is red.This deterimnes the route color bar
-    - params: *dict*, the GCRTA Next Connect API request, info below:  
+9. Each route/stop/direction combination requires a Python dict with these 3 key:values. The 3rd key, *params*, is a nested dictionary object with 6 key-values.
+    - route_name: *str*, what will display, like "26" or "HL"
+    - route_color: *int*, hex color for bar (e.g. 0xff0000 for red)
+    - params: *dict*, the GCRTA Next Connect API request parameters, explained below
       - 'routeID': ⚠ *Get from NextConnect*  
       - 'directionID': ⚠ _Get from NextConnect_  
       - 'stopID': ⚠ _Get from NextConnect_  
@@ -83,19 +69,16 @@ You customize the routes to grab, and other options, in the *config.py*.
       - 'tpID': 0,
       - 'useArrivalTimes': 'false'
 
-
-Each route dict like above represents a single route at a single stop going one direction.
-
 **The board can only fit 3 rows on it.** If you are fetching more than 3 routes, it will display the 3
 soonest arrivals in order of their arrival
 
 ### Gettings `params` from GCRTA NextConnect
 
-13. Go to [GCRTA NextConnect Live Departure Times](http://nextconnect.riderta.com/LiveDepartureTimes). This is an endpoint that delivers
-live departure updates from RTA's TransitMaster system, which is the brains of RTA's operations, including scheduling, and 
-serving the RTA real time feed that is used by Google Maps and Transit App, etc.  The board essentially simulates using this website.
-14. For each route/direction/stop combo, you need to:
-    1. Enter the desired route, direction, and stop.
+10. Go to [GCRTA NextConnect Live Departure Times](http://nextconnect.riderta.com/LiveDepartureTimes). This is an endpoint that delivers
+live departure updates from RTA's TransitMaster system, which is the central brain of RTA's operations, scheduling, and 
+serving the RTA real time feed. This board essentially simulates using this website.
+11. For each route/direction/stop combo, you need to:
+    1. Enter the desired route, direction, and stop on NextConnect.
     2. Open devtools for your browser (Ctrl + Shift + I) --*Chrome is recommended if you aren't familiar with this*
     3. Go to "Network" tab
     4. Wait up to 15 seconds for the browser to fetch the update again (it automatically does this)
@@ -103,8 +86,5 @@ serving the RTA real time feed that is used by Google Maps and Transit App, etc.
     6. Click on *Payload*
     7. Use the parameters from that payload to fill out the `params` dict in the desired route dict.
 
-### Watch the board update
-
-15. Upon saving, the board will reboot and start to populate with your configured route/direction/stops. 🎉🎉🎉
-
-🚌🚌🚌
+## Finish line
+12. Upon saving your `config.py` with your desired routes, the board will reboot and populate with your configured route/direction/stops. 🎉🎉🎉
