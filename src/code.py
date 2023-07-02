@@ -31,7 +31,7 @@ print("Connecting to AP...")
 while not esp.is_connected:
     try:
         esp.connect_AP(config["wifi_ssid"], config["wifi_password"])
-    except RuntimeError as e:
+    except (RuntimeError, ConnectionError) as e:
         print("could not connect to AP, retrying: ", e)
         continue
 print("Connected to", str(esp.ssid, "utf-8"), "\tRSSI:", esp.rssi)
@@ -41,26 +41,29 @@ time_set.get_local_time()
 print("Set to local time.")
 
 # create API object which has method to fetch all predictions in a list
+# The API object requires the wifi device (esp) object to drive the 
+# all the internet requests that go into the grabbing the transit data
+# from the NextConnect platform
+
 transit_api = api.RealTimeAPI(esp)
 
-# create TrainBoard object which manages the Matrix object, and displayio groups
-# the TrainBoard manages Train objects that can update, hide, or show themselves
-# using displayio methods. It also updates a small time stamp to latest update
+# create TrainBoard object which manages the Matrix object,
 
 t = train_board.TrainBoard(transit_api.fetch_predictions)
+# Finally, the API's main function is
 
 counter = 0
 while True:
     counter += 1
-    if counter > 120: # six hours or so between time resync
+    if counter > 120: # this block tells it to resync the clock every 120 cycle, by default 6 hours if cycle = 30 seconds
         try:
-            time_set.get_local_time()
+            time_set.get_local_time() # this is done because the onboard clock starts getting inaccurate
             counter = 0
         except Exception as e:
             print("Time sync error.")
-    t.loading_dot_grp.hidden = False
-    t.refresh()  # main train board refresh
-    t.loading_dot_grp.hidden = True
+    t.loading_dot_grp.hidden = False # Corner blue dot on LED panel to indicate it's running its cycle
+    t.refresh()  # Main update function, grabs all routes info via API object and updates text and graphic objects
+    t.loading_dot_grp.hidden = True # Dot off while sleeping
     begin =time.monotonic()
     while time.monotonic()-begin <30:
         # for row in t.trains[:3]:

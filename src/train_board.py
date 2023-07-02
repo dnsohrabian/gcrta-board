@@ -71,7 +71,7 @@ class TrainBoard:
 
         if train_data is not None:
             for i in range(config['num_routes_display']):
-                if i < len(train_data):
+                if i < len(train_data): # if haven't exceeded the configured # of routes, then update the that trip (called "train" due to previous project)
                     train = train_data[i]
                     if not train['arrival']:
                         self._hide_train(i)
@@ -144,7 +144,7 @@ class Train:
         self.line_rect.fill = line_color
 
     def set_route(self, route: str):
-        self.route_label.text = route[:3]
+        self.route_label.text = route[:]
 
     def set_destination(self, destination: str):
         self.destination_label.text = ''  # setting destination to empty because the full destination makes the board
