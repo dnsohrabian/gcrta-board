@@ -9,10 +9,13 @@ url_nextconnect = config['api_url']
 seconds_1day = 24 * 60 * 60 # 24 hours x 60 minutes x 60 seconds
 network_reset = 1 # minutes before starting network
 
+# Where the user's customized routes list in config.py is piped into the code
+# The high level function in RealTimeAPI "fetch_predictions" cycles through
+# the "routes" list set below to get the bus stop/route/direction you want
 routes = config['routes']
 
 class RealTimeAPI:
-    def __init__(self, esp_control):
+    def __init__(self, esp_control): # Each API object needs to start with its own ESP object
         self.esp = esp_control
     def fetch_predictions(self, routes: list = routes) -> list:
         results = []
@@ -43,7 +46,7 @@ class RealTimeAPI:
                     update = r.json()['d']
                     r.close()
 
-                    # current time to measure offset from
+                    # current time to measure offset from later
                     nowtime = time.localtime()
                     now_hour = nowtime.tm_hour
                     now_min = nowtime.tm_min
