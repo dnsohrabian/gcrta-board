@@ -1,4 +1,5 @@
 import time
+import supervisor
 # internet setup modules
 import board
 import busio
@@ -53,19 +54,28 @@ t = train_board.TrainBoard(transit_api.fetch_predictions)
 # Finally, the API's main function is
 
 counter = 0
+clock_cadence = 120 # number of cycles until clock is synchronized again
+sleep_seconds =30 # number of seconds to wait between cycles
+
 while True:
     counter += 1
-    if counter > 120: # this block tells it to resync the clock every 120 cycle, by default 6 hours if cycle = 30 seconds
+    print(f"Beginning cycle {counter} of {clock_cadence}")
+    if counter > clock_cadence: # this block tells it to resync the clock every 120 cycles, by default 6 hours if cycle = 30 seconds
         try:
-            time_set.get_local_time() # this is done because the onboard clock starts getting inaccurate
+            time_set.get_local_time() # this is done because the onboard clock starts lagging
             counter = 0
+            print("Reset cycle counter to 0. Updated time")
         except Exception as e:
             print("Time sync error.")
     t.loading_dot_grp.hidden = False # Corner blue dot on LED panel to indicate it's running its cycle
-    t.refresh()  # Main update function, grabs all routes info via API object and updates text and graphic objects
+    try:
+        t.refresh()  # Main update function, grabs all routes info via API object and updates text and graphic objects
+    except ConnectionError: # If the error catching and resetting in the above code fails, it's code red, time to soft reset
+        supervisor.reload()
     t.loading_dot_grp.hidden = True # Dot off while sleeping
+    print(f"End cycle {counter} of {clock_cadence}. Sleeping {sleep_seconds} seconds")
     begin =time.monotonic()
-    while time.monotonic()-begin <30:
+    while time.monotonic()-begin < sleep_seconds:
         # for row in t.trains[:3]:
         #     row.destination_label.update()
         #     t.display.refresh(minimum_frames_per_second=0)
