@@ -5,7 +5,7 @@ import rtc
 import time
 
 time_format = "%Y-%m-%d %H:%M:%S.%L %j %u %z %Z"
-time_zone = config.get('timezone',None)
+time_zone = config['timezone']
 
 TIME_SERVICE = (
     "https://io.adafruit.com/api/v2/%s/integrations/time/strftime?x-aio-key=%s"
