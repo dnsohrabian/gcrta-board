@@ -5,6 +5,8 @@ This project is a modded Cleveland version of the [dc-metro](https://github.com/
 It uses the same hardware and general display, with capability to poll the [Greater Cleveland Regional Transit Authority](http://www.riderta.com/)
 live trip updates and ⌚.
 
+🚨🚨🚨 At some point in 2024, the legacy RTA service this board uses has a broken frontend. This unfortunately means you can't set this project up any more.
+
 It uses a friendly version of Micropython (which is Python meant for
 embedded devices) called CircuitPython. CP is developed by the makers of the hardware, [Adafruit](https://www.adafruit.com/), who makes and sells 
 educational and hobby electronics/coding products, provides great resources and is woman-owned in NYC. Check em out.
@@ -76,7 +78,7 @@ soonest arrivals in order of their arrival
 
 10. Go to [GCRTA NextConnect Live Departure Times](http://nextconnect.riderta.com/LiveDepartureTimes). This is an endpoint that delivers
 live departure updates from RTA's TransitMaster system, which is the central brain of RTA's operations, scheduling, and 
-serving the RTA real time feed. This board essentially simulates using this website.
+serving the RTA real time feed. This board essentially simulates using this website. 🚨 This doesn't work any more. Sorry people, I'm looking for alternatives 🚨
 11. For each route/direction/stop combo, you need to:
     1. Enter the desired route, direction, and stop on NextConnect.
     2. Open devtools for your browser (Ctrl + Shift + I) --*Chrome is recommended if you aren't familiar with this*
