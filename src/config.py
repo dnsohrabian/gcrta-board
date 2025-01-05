@@ -1,16 +1,41 @@
 from adafruit_bitmap_font import bitmap_font
 from secrets import secrets
 
-"""Insert the NextConnect request dictionaries for your chosen routes.
-At the NextConnect url, can look at Developer Mode in Chrome (Ctrl+Shft+I), go to Network tab, set it
-up for the stop you want, then click on the 'getStopTimes' request, and look
-at Payload tab to see what their API is calling. Add it as a dict below for each route you set up below for the 'params'
-key in each route.
+
+##### ROUTE CONFIG #####
 """
+Every arrival estimate requires a specific route config for each route-stop-direction combo.
+The board is designed to use two lists of route configs (dictionaries): one in each direction of the route.
+I choose to use A to denote inbound and B to denote outbound for the same route.
 
-# These are dicts of POST payload data for specific transit stops. The transit authority API uses this structure.
+Each route config entry has the following dictionary format:
 
-route_1 = {
+route_LETTERNUMBER = {
+    "route_name": "22-E", --- How the board labels this arrival time on left-hand of  board
+    "route_color": 0x######, --- The color of the line next to the name, as hexadecimal number
+    "params": {
+        "routeID": {int}, 
+        "directionID": {int},
+        "stopID": {int},
+        "tpID": 0,
+        "useArrivalTimes": "false",
+    },
+    "cutoff": 5,
+}
+
+The (slightly) tedious part is gathering the routeID, directionID and stopID for each entry.
+To do this:
+    1) go to the riderta.com homep
+    2) click Real-Time Departures
+    3) press F12 to open dev tools in your browser
+    4) Click "Network" tab of the dev tool panel
+    5) Choose your route, direction, and stop on the website
+    6) Find the getStopTimes entry in the Network activity under "Name".
+    7) Go to "Payload" for that entry and observe
+
+"""
+# INBOUND ROUTES
+route_1A = {
     "route_name": "22-E",
     "route_color": 0x0011AA,
     "params": {
@@ -22,8 +47,8 @@ route_1 = {
     },
     "cutoff": 5,
 }
-route_2 = {
-    "route_name": "45-E",
+route_2A = {
+    "route_name": "45-N",
     "route_color": 0xA81995,
     "params": {
         "routeID": 60,
@@ -34,7 +59,7 @@ route_2 = {
     },
     "cutoff": 5,
 }
-route_3 = {
+route_3A = {
     "route_name": "26-E",
     "route_color": 0x22CF19,
     "params": {
@@ -46,8 +71,8 @@ route_3 = {
     },
     "cutoff": 5,
 }
-route_4 = {
-    "route_name": "71-E",
+route_4A = {
+    "route_name": "71-N",
     "route_color": 0xDE4E00,
     "params": {
         "routeID": 193,
@@ -58,7 +83,7 @@ route_4 = {
     },
     "cutoff": 5,
 }
-route_5 = {
+route_5A = {
     "route_name": "RL-E",
     "route_color": 0xDD0000,
     "params": {
@@ -71,24 +96,88 @@ route_5 = {
     "cutoff": 15,
 }
 
-# you can feasibly add as many as you like but the board can only show 3 at a time and the network requests take time
+routes_in = [route_1A, route_2A, route_3A, route_4A, route_5A]
 
-routes = [route_1, route_2, route_3, route_4, route_5]
+# OUTBOUND ROUTES
+route_1B = {
+    "route_name": "22-W",
+    "route_color": 0x0011AA,
+    "params": {
+        "routeID": 139,
+        "directionID": 14,
+        "stopID": 13364,
+        "tpID": 0,
+        "useArrivalTimes": "false",
+    },
+    "cutoff": 5,
+}
 
+route_2B = {
+    "route_name": "45-S",
+    "route_color": 0xA81995,
+    "params": {
+        "routeID": 60,
+        "directionID": 7,
+        "stopID": 831,
+        "tpID": 0,
+        "useArrivalTimes": "false",
+    },
+    "cutoff": 5,
+}
+
+route_3B = {
+    "route_name": "26-W",
+    "route_color": 0x22CF19,
+    "params": {
+        "routeID": 165,
+        "directionID": 14,
+        "stopID": 9185,
+        "tpID": 0,
+        "useArrivalTimes": "false",
+    },
+    "cutoff": 5,
+}
+route_4B = {
+    "route_name": "71-S",
+    "route_color": 0xDE4E00,
+    "params": {
+        "routeID": 193,
+        "directionID": 7,
+        "stopID": 9185,
+        "tpID": 0,
+        "useArrivalTimes": "false",
+    },
+    "cutoff": 5,
+}
+route_5B = {
+    "route_name": "RL-W",
+    "route_color": 0xDD0000,
+    "params": {
+        "routeID": 147,
+        "directionID": 14,
+        "stopID": 17564,
+        "tpID": 0,
+        "useArrivalTimes": "false",
+    },
+    "cutoff": 15,
+}
+routes_out = [route_1B, route_2B, route_3B, route_4B, route_5B]
+
+##### MAIN CONFIG #####
 config = {
-    #########################
-    # Network Configuration #
-    #########################
+    # Route lists, passed from above
+    "routes_in": routes_in,
+    "routes_out": routes_out,
     # Wifi and aio credentials
     "wifi_ssid": secrets["ssid"],
     "wifi_password": secrets["password"],
     "aio_username": secrets["aio_username"],
     "aio_key": secrets["aio_key"],
-    # Time settings
+    # Time Zone
     "timezone": "America/New_York",
     # API and fetch settings
     "api_url": "https://webwatch.gcrta.vontascloud.com/TMWebWatch/Arrivals.aspx/getStopTimes",  # the transit authority API
-    "refresh_interval": 30,  # GCRTA feed seems to update every 30 seconds
+    "refresh_interval": 15, # Seconds
     "cutoff_min": 4,  # minimum minutes til arrival to remove buses you won't make it to
     # Display Settings
     "matrix_width": 64,
@@ -108,16 +197,14 @@ config = {
     "loading_destination_text": "---",
     "loading_min_text": "---",
     "loading_line_color": 0xFF00FF,  # purple
-    "loading_time_msg": "ride rta",
+    "loading_time_msg": "RIDE LE BUS",
     # Heading text
     "heading_text": "ROUTE    MINUTES",
-    "heading_color": 0x00008B,  # red
+    "heading_color": 0xFFFFFF,  # red
     # Clock text
     "clock_color": 0x00008B,
     # Train color bar settings
     "train_line_height": 6,
     "train_line_width": 2,
     "min_label_characters": 5,
-    # Five routes above stored under this key for API use
-    "routes": routes
 }

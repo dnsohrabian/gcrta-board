@@ -7,9 +7,7 @@ import time
 # Set up parameters
 url_nextconnect = config["api_url"]
 seconds_1day = 24 * 60 * 60  # 24 hours x 60 minutes x 60 seconds
-network_reset = 1  # minutes before starting network
-
-routes = config["routes"]
+routes = config["routes_in"]
 
 
 class RealTimeAPI:
@@ -25,7 +23,7 @@ class RealTimeAPI:
                 route["params"],
                 route["cutoff"],
             )
-            time.sleep(0.5)
+            time.sleep(0.1)
             if not update:
                 continue
             results.append(update)
