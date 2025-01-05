@@ -5,7 +5,6 @@ This project is a modded Cleveland version of the [dc-metro](https://github.com/
 It uses the same hardware and general display, with capability to poll the [Greater Cleveland Regional Transit Authority](http://www.riderta.com/)
 live trip updates and ⌚.
 
-🚨🚨🚨 At some point in 2024, the legacy RTA service this board uses has a broken frontend. This unfortunately means you can't set this project up any more.
 
 It uses a friendly version of Micropython (which is Python meant for
 embedded devices) called CircuitPython. CP is developed by the makers of the hardware, [Adafruit](https://www.adafruit.com/), who makes and sells 
@@ -15,7 +14,7 @@ educational and hobby electronics/coding products, provides great resources and 
 
 # How To
 ## Hardware Needed
-- An [Adafruit Matrix Portal](https://www.adafruit.com/product/4745) - $24.99
+- An [Adafruit Matrix Portal](https://www.adafruit.com/product/4745) - $24.95
   - This is a single board microcontroller, a.k.a. *a small computer*
 - A **64x32 RGB LED matrix** compatible with the _Matrix Portal_ - $39.99 _to_ $84.99
     - [64x32 RGB LED Matrix - 3mm pitch](https://www.adafruit.com/product/2279) Smallest, finer grid
@@ -56,17 +55,17 @@ The board needs to regularly synchronize its onboard clock using a free time ser
 
 ## Transit board config
 
-The board should reload and start showing you default routes! You now need to configure it to your liking. 
+The board will  reload and start showing you default routes! **You now need to configure it to show your desired stops/routes.**
 
 ### Customize your stops in the *config.py*.  
 
 9. Each route/stop/direction combination requires a Python dict with these 3 key:values. The 3rd key, *params*, is a nested dictionary object with 6 key-values.
     - route_name: *str*, what will display, like "26" or "HL"
     - route_color: *int*, hex color for bar (e.g. 0xff0000 for red)
-    - params: *dict*, the GCRTA Next Connect API request parameters, explained below
-      - 'routeID': ⚠ *Get from NextConnect*  
-      - 'directionID': ⚠ _Get from NextConnect_  
-      - 'stopID': ⚠ _Get from NextConnect_  
+    - params: *dict*, GCRTA's Live Departure service request parameters, explained below
+      - 'routeID': ⚠ *Get from Live Departures*  
+      - 'directionID': ⚠ _Get from Live Departures_  
+      - 'stopID': ⚠ _Get from Live Departures_  
       - 'cutoff': *int* Trips arriving sooner than this time will be tossed out because they are impossible to reach the stop in time
       - 'tpID': 0,
       - 'useArrivalTimes': 'false'
@@ -74,13 +73,14 @@ The board should reload and start showing you default routes! You now need to co
 **The board can only fit 3 rows on it.** If you are fetching more than 3 routes, it will display the 3
 soonest arrivals in order of their arrival
 
-### Gettings `params` from GCRTA NextConnect
+### Gettings `params` from GCRTA Live Departures
 
-10. Go to [GCRTA NextConnect Live Departure Times](http://nextconnect.riderta.com/LiveDepartureTimes). This is an endpoint that delivers
+10. Go to Live Departures on [GCRTA homepage](https://www.riderta.com/). This service is powered by web service that delivers
 live departure updates from RTA's TransitMaster system, which is the central brain of RTA's operations, scheduling, and 
-serving the RTA real time feed. This board essentially simulates using this website. 🚨 This doesn't work any more. Sorry people, I'm looking for alternatives 🚨
+serving the RTA real time feed. This board essentially simulates using the RTA website. **You need collect 2 lists of route config entries: one for each direction of the route.**
+
 11. For each route/direction/stop combo, you need to:
-    1. Enter the desired route, direction, and stop on NextConnect.
+    1. Enter the desired route, direction, and stop on Live Departures.
     2. Open devtools for your browser (Ctrl + Shift + I) --*Chrome is recommended if you aren't familiar with this*
     3. Go to "Network" tab
     4. Wait up to 15 seconds for the browser to fetch the update again (it automatically does this)
@@ -88,5 +88,9 @@ serving the RTA real time feed. This board essentially simulates using this webs
     6. Click on *Payload*
     7. Use the parameters from that payload to fill out the `params` dict in the desired route dict.
 
-## Finish line
-12. Upon saving your `config.py` with your desired routes, the board will reboot and populate with your configured route/direction/stops. 🎉🎉🎉
+    Store the first set of config entries in `routes_in` list.
+
+    Collect the same information for the opposite direction in `routes_out` list. See `config.py` for details.
+
+## Finish Line 🏁🎉
+12. Upon saving your `config.py` with your desired routes, the board will reboot and populate with your configured route/direction/stops.
