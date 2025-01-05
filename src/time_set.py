@@ -5,11 +5,12 @@ import rtc
 import time
 
 time_format = "%Y-%m-%d %H:%M:%S.%L %j %u %z %Z"
-time_zone = config['timezone']
+time_zone = config["timezone"]
 
 TIME_SERVICE = (
     "https://io.adafruit.com/api/v2/%s/integrations/time/strftime?x-aio-key=%s"
 )
+
 
 def url_encode(url):
     """
@@ -20,7 +21,8 @@ def url_encode(url):
     url = url.replace(":", "%3A")
     return url
 
-def get_strftime(time_format= time_format, location=time_zone):
+
+def get_strftime(time_format=time_format, location=time_zone):
     """
     Fetch a custom strftime relative to your location.
     :param str location: Your city and country, e.g. ``"America/New_York"``.
@@ -49,8 +51,7 @@ def get_strftime(time_format= time_format, location=time_zone):
         if response.status_code != 200:
             print(response)
             error_message = (
-                "Error connecting to Adafruit IO. The response was: "
-                + response.text
+                "Error connecting to Adafruit IO. The response was: " + response.text
             )
             raise RuntimeError
         reply = response.text

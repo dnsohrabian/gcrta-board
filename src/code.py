@@ -1,5 +1,8 @@
+# type: ignore
+
 import time
 import supervisor
+
 # internet setup modules
 import board
 import busio
@@ -14,7 +17,7 @@ from adafruit_esp32spi import adafruit_esp32spi
 from config import config
 
 # other pieces of my code in root
-import api # module sets up my internet
+import api  # module sets up my internet
 import time_set
 import train_board
 
@@ -41,42 +44,63 @@ print("Connected to", str(esp.ssid, "utf-8"), "\tRSSI:", esp.rssi)
 time_set.get_local_time()
 print("Set to local time.")
 
-# create API object which has method to fetch all predictions in a list
-# The API object requires the wifi device (esp) object to drive the 
-# all the internet requests that go into the grabbing the transit data
-# from the NextConnect platform
-
+# Create API object which has method to fetch all predictions in a list
+# The API object requires the wifi device (esp) object to control requests
 transit_api = api.RealTimeAPI(esp)
 
-# create TrainBoard object which manages the Matrix object,
-
+# Create the TrainBoard object which orchestrates the display,
 t = train_board.TrainBoard(transit_api.fetch_predictions)
-# Finally, the API's main function is
 
+# Set up key timings
+sleep_seconds = config["refresh_interval"]  # number of seconds to wait between cycles
+clock_reset_minutes = 180 # How often to reset the board's clock, in minutes
+cycles_until_clock_reset = (clock_reset_minutes * 60)/ sleep_seconds  # number of cycles until clock is synchronized again
+
+# Set loop parameters to starting state
+inbound = False
 counter = 0
-clock_cadence = 120 # number of cycles until clock is synchronized again
-sleep_seconds =30 # number of seconds to wait between cycles
 
 while True:
     counter += 1
-    print(f"Beginning cycle {counter} of {clock_cadence}")
-    if counter > clock_cadence: # this block tells it to resync the clock every 120 cycles, by default 6 hours if cycle = 30 seconds
+    inbound = not inbound
+    print(
+        f"Beginning cycle {counter} of {cycles_until_clock_reset}, Direction: {"Inbound" if inbound else "Outbound"}"
+    )
+    if (
+        counter > cycles_until_clock_reset
+    ):  # this block tells it to resync the clock from Adafruit clock service, by default 6 hours if cycle = 30 seconds
         try:
-            time_set.get_local_time() # this is done because the onboard clock starts lagging
+            time_set.get_local_time()  # this is done because the onboard clock starts lagging
             counter = 0
             print("Reset cycle counter to 0. Updated time")
         except Exception as e:
             print("Time sync error.")
-    t.loading_dot_grp.hidden = False # Corner blue dot on LED panel to indicate it's running its cycle
+    t.loading_dot_grp.hidden = (
+        False  # Corner blue dot on LED panel to indicate it's running its cycle
+    )
     try:
-        t.refresh()  # Main update function, grabs all routes info via API object and updates text and graphic objects
-    except ConnectionError: # If the error catching and resetting in the above code fails, it's code red, time to soft reset
+        if inbound:
+            t.refresh(
+                config["routes_in"], direction="in"
+            )  # Main update function, grabs all routes info via API object and updates text and graphic objects
+        else:
+            t.refresh(config["routes_out"], direction="out")
+    except (
+        ConnectionError
+    ):  # If the error catching and resetting in the above code fails, it's code red, time to soft reset
         supervisor.reload()
-    t.loading_dot_grp.hidden = True # Dot off while sleeping
-    print(f"End cycle {counter} of {clock_cadence}. Sleeping {sleep_seconds} seconds")
-    begin =time.monotonic()
-    while time.monotonic()-begin < sleep_seconds:
-        # for row in t.trains[:3]:
-        #     row.destination_label.update()
-        #     t.display.refresh(minimum_frames_per_second=0)
-        pass
+    t.loading_dot_grp.hidden = True  # Dot off while not actively fetching new data
+
+    # Sleep between fetching more updates
+    # This loop will flip between directions twice during sleep
+    begin = time.monotonic()
+    direction_flip_times = 2
+    direction_flips = 0
+    flip_duration = sleep_seconds / direction_flip_times
+    print(
+        f"Sleeping {sleep_seconds} seconds with direction flip every {flip_duration} seconds"
+    )
+    while direction_flips < direction_flip_times:
+        time.sleep(flip_duration)
+        t.flip_direction()
+        direction_flips += 1
