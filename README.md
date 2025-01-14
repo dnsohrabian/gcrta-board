@@ -28,11 +28,12 @@ educational and hobby electronics/coding products, provides great resources and 
 ### Hardware and CircuitPython setup
 
 1. [Prep the MatrixPortal and LED board](https://learn.adafruit.com/adafruit-matrixportal-m4/prep-the-matrixportal) using Adafruit's guide.
-2. [Install CircuitPython.](https://learn.adafruit.com/adafruit-matrixportal-m4/install-circuitpython) Click "Download .UF2 Now" and follow steps.
+2. [Install CircuitPython.](https://learn.adafruit.com/adafruit-matrixportal-m4/install-circuitpython) **This project works for Circuit Python 8.X.** 
+   requires 8. Click Browse Previous Versions and download a copy of CircuitPython 8.X or use the .UF2 file in the root of this repo which is 8.2.7.
 ### Adding the gcrta-board  code
 
 3. Drag (copy) the `src/lib` folder from this repository onto *CIRCUITPY* drive.
-5. Drag (copy) all the individual Python files inside `/src` onto *CIRCUITPY* drive. Do not copy the folder itself.
+4. Drag (copy) all the individual Python files inside `/src` onto *CIRCUITPY* drive. Do not copy the folder itself.
 
 At this point your *CIRCUITPY* drive should look like:
 ```
