@@ -1,210 +1,76 @@
-from adafruit_bitmap_font import bitmap_font
-from secrets import secrets
+# Transit board configuration: the only file most people need to edit.
+# Wi-Fi password and API key live in settings.toml (see settings.toml.example).
+#
+# HOW TO FIND YOUR STOPS
+#   The "stop" is the stop number printed on the bus-stop sign, also shown in the Transit app.
+#   Or, on a computer:  python tools/find_stops.py "lorain w 117"   (searches every GCRTA stop)
+#   Bus stops are one direction only, so use the stop on the side of the street you board from.
+#   Rail stations have a separate stop number for each platform/direction.
+#
+# Each arrival entry:
+#   "stop"   : stop number (int or str)                                    REQUIRED
+#   "route"  : route as GCRTA writes it, e.g. "22", "26", "RL"           REQUIRED
+#   "label"  : text in the colored route badge, 1-2 characters            (default: route)
+#   "color"  : badge color, 0xRRGGBB                                       (default: gray)
+#   "min_minutes": hide arrivals sooner than this, i.e. buses you can't make (default: MIN_MINUTES)
+#   "headsign": only count trips whose destination contains this text, e.g. "airport" (optional)
+# The destination shown next to the badge comes from the live data (e.g. "WESTGATE TC").
 
+# Route badge colors. Similar brightness so no badge glows, and distinct for color-blind
+# viewers too (blue is lighter than magenta, orange lighter than red).
+BLUE, MAGENTA, GREEN, ORANGE, RED = 0x30A8FF, 0xC848C8, 0x20A040, 0xFF9020, 0xE0202C
 
-##### ROUTE CONFIG #####
-"""
-Every arrival estimate requires a specific route config for each route-stop-direction combo.
-The board is designed to use two lists of route configs (dictionaries): one in each direction of the route.
-I choose to use A to denote inbound and B to denote outbound for the same route.
+# ---------------------------------------------------------------------------
+# PAGES: the board rotates through these. Each page shows its 3 soonest routes.
+# These are Ohio City stops (Lorain & Fulton, Detroit & W 38th). Replace them with your own.
+# ---------------------------------------------------------------------------
+PAGES = [
+    {
+        "title": "INBOUND",  # toward downtown
+        "arrivals": [
+            {"stop": 5810, "route": "22", "color": BLUE},                            # Lorain & Fulton
+            {"stop": 4774, "route": "45", "color": MAGENTA},                         # Fulton & Lorain
+            {"stop": 11355, "route": "26", "color": GREEN},                          # Detroit & W 38th
+            {"stop": 11355, "route": "71", "color": ORANGE},                         # Detroit & W 38th
+            {"stop": 28902, "route": "RL", "color": RED, "min_minutes": 10},         # W 25th-Ohio City
+        ],
+    },
+    {
+        "title": "OUTBOUND",
+        "arrivals": [
+            {"stop": 5811, "route": "22", "color": BLUE},                            # Lorain & Fulton Pl
+            {"stop": 10847, "route": "45", "color": MAGENTA},                        # Fulton & Lorain
+            {"stop": 3447, "route": "26", "color": GREEN},                           # Detroit & W 38th
+            {"stop": 3447, "route": "71", "color": ORANGE},                          # Detroit & W 38th
+            {"stop": 28901, "route": "RL", "color": RED, "min_minutes": 10},         # W 25th-Ohio City
+        ],
+    },
+]
 
-Each route config entry has the following dictionary format:
+# ---------------------------------------------------------------------------
+# Behaviour
+# ---------------------------------------------------------------------------
+AGENCY = "cleveland"     # Swiftly agency key (GCRTA = "cleveland")
+MIN_MINUTES = 4          # default cutoff: hide arrivals sooner than this
+TIMES_PER_ROW = 1        # 1: next arrival only, large  |  2: next two, e.g. "5,31", smaller
+PAGE_SECONDS = 8         # how long each page stays on screen
+FETCH_SECONDS = 30       # how often each stop is refreshed (GCRTA data updates ~every 30 s)
+STALE_SECONDS = 180      # drop a stop's data if it couldn't be refreshed for this long
+CLOCK_SYNC_HOURS = 6     # how often to re-sync the clock from the internet
+CLOCK_24H = True         # 15:53 (True) or 3:53 (False)
+DEBUG = True             # print fetch timings and free memory to the serial console
 
-route_LETTERNUMBER = {
-    "route_name": "22-E", --- How the board labels this arrival time on left-hand of  board
-    "route_color": 0x######, --- The color of the line next to the name, as hexadecimal number
-    "params": {
-        "routeID": {int}, 
-        "directionID": {int},
-        "stopID": {int},
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-
-The (slightly) tedious part is gathering the routeID, directionID and stopID for each entry.
-To do this:
-    1) go to the riderta.com homep
-    2) click Real-Time Departures
-    3) press F12 to open dev tools in your browser
-    4) Click "Network" tab of the dev tool panel
-    5) Choose your route, direction, and stop on the website
-    6) Find the getStopTimes entry in the Network activity under "Name".
-    7) Go to "Payload" for that entry and observe
-
-"""
-# INBOUND ROUTES
-route_1A = {
-    "route_name": "22-E",
-    "route_color": 0x0011AA,
-    "params": {
-        "routeID": 139,
-        "directionID": 3,
-        "stopID": 13363,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-route_2A = {
-    "route_name": "45-N",
-    "route_color": 0xA81995,
-    "params": {
-        "routeID": 60,
-        "directionID": 5,
-        "stopID": 12925,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-route_3A = {
-    "route_name": "26-E",
-    "route_color": 0x22CF19,
-    "params": {
-        "routeID": 165,
-        "directionID": 3,
-        "stopID": 1342,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-route_4A = {
-    "route_name": "71-N",
-    "route_color": 0xDE4E00,
-    "params": {
-        "routeID": 193,
-        "directionID": 5,
-        "stopID": 1342,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-route_5A = {
-    "route_name": "RL-E",
-    "route_color": 0xDD0000,
-    "params": {
-        "routeID": 147,
-        "directionID": 3,
-        "stopID": 16125,
-        "tpID": 919,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 15,
-}
-
-routes_in = [route_1A, route_2A, route_3A, route_4A, route_5A]
-
-# OUTBOUND ROUTES
-route_1B = {
-    "route_name": "22-W",
-    "route_color": 0x0011AA,
-    "params": {
-        "routeID": 139,
-        "directionID": 14,
-        "stopID": 13364,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-
-route_2B = {
-    "route_name": "45-S",
-    "route_color": 0xA81995,
-    "params": {
-        "routeID": 60,
-        "directionID": 7,
-        "stopID": 831,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-
-route_3B = {
-    "route_name": "26-W",
-    "route_color": 0x22CF19,
-    "params": {
-        "routeID": 165,
-        "directionID": 14,
-        "stopID": 9185,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-route_4B = {
-    "route_name": "71-S",
-    "route_color": 0xDE4E00,
-    "params": {
-        "routeID": 193,
-        "directionID": 7,
-        "stopID": 9185,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 5,
-}
-route_5B = {
-    "route_name": "RL-W",
-    "route_color": 0xDD0000,
-    "params": {
-        "routeID": 147,
-        "directionID": 14,
-        "stopID": 17564,
-        "tpID": 0,
-        "useArrivalTimes": "false",
-    },
-    "cutoff": 15,
-}
-routes_out = [route_1B, route_2B, route_3B, route_4B, route_5B]
-
-##### MAIN CONFIG #####
-config = {
-    # Route lists, passed from above
-    "routes_in": routes_in,
-    "routes_out": routes_out,
-    # Wifi and aio credentials
-    "wifi_ssid": secrets["ssid"],
-    "wifi_password": secrets["password"],
-    "aio_username": secrets["aio_username"],
-    "aio_key": secrets["aio_key"],
-    # Time Zone
-    "timezone": "America/New_York",
-    # API and fetch settings
-    "api_url": "https://webwatch.gcrta.vontascloud.com/TMWebWatch/Arrivals.aspx/getStopTimes",  # the transit authority API
-    "refresh_interval": 15, # Seconds
-    "cutoff_min": 4,  # minimum minutes til arrival to remove buses you won't make it to
-    # Display Settings
-    "matrix_width": 64,
-    "num_routes_display": 3,
-    "font": bitmap_font.load_font("lib/5x7.bdf"),
-    "time_font": bitmap_font.load_font("lib/4x6.bdf"),
-    # Core text settings
-    "character_width": 5,
-    "character_height": 7,
-    "text_padding": 3,
-    "text_color": 0x552200,
-    "dest_color": 0xFF7500,
-    "not_live_flag": False,  # adds character after minute if update is scheduled and not live (static)
-    "live_char": ".",  # character to use to flag if a static update
-    # Loading indicator and text settings
-    "loading_route_text": "--",
-    "loading_destination_text": "---",
-    "loading_min_text": "---",
-    "loading_line_color": 0xFF00FF,  # purple
-    "loading_time_msg": "RIDE LE BUS",
-    # Heading text
-    "heading_text": "ROUTE    MINUTES",
-    "heading_color": 0xFFFFFF,  # red
-    # Clock text
-    "clock_color": 0x00008B,
-    # Train color bar settings
-    "train_line_height": 6,
-    "train_line_width": 2,
-    "min_label_characters": 5,
-}
+# ---------------------------------------------------------------------------
+# Display (64x32 panel; the layout is described at the top of screen.py)
+# ---------------------------------------------------------------------------
+BIT_DEPTH = 5            # color depth 1-6; higher = smoother colors, more CPU spent on the panel
+FONT = "lib/5x7.bdf"     # minutes (TIMES_PER_ROW = 1) and messages
+SMALL_FONT = "lib/4x6.bdf"  # everything else
+# Colors are 0xRRGGBB as on a computer screen; the board gamma-corrects them for the LEDs.
+# Brightness sets importance and color sets kind: a dim header, bright neutral words,
+# amber numbers. Route color lives only in the badges.
+TITLE_COLOR = 0x5878B0   # page title (dim, so it reads as a header)
+CLOCK_COLOR = 0x5878B0   # same as the title: one header strip
+DEST_COLOR = 0xC0C0C0    # destination text
+TIME_COLOR = 0xFFB000    # minutes
+MESSAGE_COLOR = 0xFFB000 # "NO DATA", "NONE SOON", "CONNECTING"

@@ -1,0 +1,13 @@
+# Template: rename this file to settings.toml on the CIRCUITPY drive and fill in your Wi-Fi.
+# settings.toml holds private values; keep it out of git.
+
+CIRCUITPY_WIFI_SSID = "your-network-name"
+CIRCUITPY_WIFI_PASSWORD = "your-wifi-password"
+
+# Real-time arrivals key, published by GCRTA for public use (https://www.riderta.com/developers).
+# Already filled in; leave it as is.
+SWIFTLY_API_KEY = "e1610d01cd4aac87f63158c9321ddadc"
+
+# Time zone: standard-time offset from UTC in hours, and daylight saving rule ("US" or "none")
+TZ_OFFSET = -5
+TZ_DST = "US"

@@ -1,99 +1,119 @@
-# gcrta-board 
+# gcrta-board
 `A real-time LED transit arrival board for Clevelanders`
 
-This project is a modded Cleveland version of the [dc-metro](https://github.com/metro-sign/dc-metro) transit board.
-It uses the same hardware and general display, with capability to poll the [Greater Cleveland Regional Transit Authority](http://www.riderta.com/)
-live trip updates and ⌚.
+Live GCRTA bus and rail arrivals on a 64x32 LED matrix, driven by an
+[Adafruit Matrix Portal M4](https://www.adafruit.com/product/4745) running CircuitPython 10.
+It started as a Cleveland version of the [dc-metro](https://github.com/metro-sign/dc-metro) board.
 
+![The board showing outbound arrivals](img/Example1.jpg)
 
-It uses a friendly version of Micropython (which is Python meant for
-embedded devices) called CircuitPython. CP is developed by the makers of the hardware, [Adafruit](https://www.adafruit.com/), who makes and sells 
-educational and hobby electronics/coding products, provides great resources and is woman-owned in NYC. Check em out.
+Each row shows a colored route badge, the destination (long names scroll) and the minutes
+until the next arrival. Set `TIMES_PER_ROW = 2` to show the next two, like "15,29".
+Pages rotate between groups of stops, e.g. inbound and outbound.
 
-![Example photo](/img/Example1.jpg)
+Arrival data is provided by the Greater Cleveland Regional Transit Authority (GCRTA)
+through [Swiftly](https://www.goswift.ly/), its real-time data provider, under GCRTA's
+[developer license](https://www.riderta.com/developers). This project is not affiliated
+with or endorsed by GCRTA.
 
-# How To
-## Hardware Needed
-- An [Adafruit Matrix Portal](https://www.adafruit.com/product/4745) - $24.95
-  - This is a single board microcontroller, a.k.a. *a small computer*
-- A **64x32 RGB LED matrix** compatible with the _Matrix Portal_ - $39.99 _to_ $84.99
-    - [64x32 RGB LED Matrix - 3mm pitch](https://www.adafruit.com/product/2279) Smallest, finer grid
-    - [64x32 RGB LED Matrix - 4mm pitch](https://www.adafruit.com/product/2278)
-    - [64x32 RGB LED Matrix - 5mm pitch](https://www.adafruit.com/product/2277)
-    - [64x32 RGB LED Matrix - 6mm pitch](https://www.adafruit.com/product/2276) Less dense pixels, but bigger (15" x 7.5")
-- A **USB-C power supply** (15w phone adapters should work fine for this code, but the panels can theoretically pull 20w if every pixel is on white)
-- A **USB-C cable** that can connect your computer/power supply to the board
+The board asks for one stop at a time, and each request returns a few KB of JSON.
 
-## Setup Overview
-### Hardware and CircuitPython setup
+CircuitPython is a friendly version of Python for small devices, made by
+[Adafruit](https://www.adafruit.com/), who make and sell educational and hobby electronics,
+publish great guides, and are a woman-owned business in NYC. Check them out.
 
-1. [Prep the MatrixPortal and LED board](https://learn.adafruit.com/adafruit-matrixportal-m4/prep-the-matrixportal) using Adafruit's guide.
-2. [Install CircuitPython.](https://learn.adafruit.com/adafruit-matrixportal-m4/install-circuitpython) **This project works for Circuit Python
-8.X. and will not work on the 9+**
-  - Click Browse Previous Versions and download a copy of CircuitPython 8.X. You can also use the .UF2 file in the root of this repo for 8.2.7.
-  - Set your board into bootloader mode (double-tap reset), and drag the file onto the mounted drive. (see instructions on Adafruit for details)
-### Adding the gcrta-board  code
+## Hardware
+- An [Adafruit Matrix Portal M4](https://www.adafruit.com/product/4745), a small computer
+  with Wi-Fi that drives the panel
+- A **64x32 RGB LED matrix** that works with the Matrix Portal:
+  [3 mm](https://www.adafruit.com/product/2279), [4 mm](https://www.adafruit.com/product/2278),
+  [5 mm](https://www.adafruit.com/product/2277) or [6 mm](https://www.adafruit.com/product/2276)
+  pitch. Smaller pitch means a smaller, sharper board; 6 mm is about 15" x 7.5".
+- A **USB-C power supply** (a 15 W phone charger is plenty for this display) and cable
 
-3. Drag (copy) the `src/lib` folder from this repository onto *CIRCUITPY* drive.
-4. Drag (copy) all the individual Python files inside `/src` onto *CIRCUITPY* drive. Do not copy the folder itself.
+## Setup
+1. [Prepare the Matrix Portal and panel](https://learn.adafruit.com/adafruit-matrixportal-m4/prep-the-matrixportal)
+   with Adafruit's guide.
+2. [Install CircuitPython 10.x](https://circuitpython.org/board/matrixportal_m4/).
+3. **Update the Wi-Fi chip's firmware to NINA 3.x.** Older firmware (1.7.x) can't make a
+   secure connection to the Swiftly server, so every request fails with "ESP32 not
+   responding". The board prints its firmware version to the serial console at startup.
+   See Adafruit's [ESP32 firmware guide](https://learn.adafruit.com/upgrading-esp32-firmware).
+4. Copy everything inside `src/` onto the `CIRCUITPY` drive, including the `lib` folder.
+   `src/lib` holds the fonts and the CircuitPython 10 libraries the board needs.
+5. Add your Wi-Fi. `settings.toml.example` is a template: on the `CIRCUITPY` drive,
+   rename it to `settings.toml`, open it in any text editor and fill in your Wi-Fi:
+   ```toml
+   CIRCUITPY_WIFI_SSID = "your-network-name"      # your Wi-Fi network name
+   CIRCUITPY_WIFI_PASSWORD = "your-wifi-password"
+   ```
+   - **API key:** already filled in. It's the key GCRTA publishes for public use.
+   - **Time zone:** leave `TZ_OFFSET` and `TZ_DST` alone if you're on US Eastern time.
 
-At this point your *CIRCUITPY* drive should look like:
+   `settings.toml` stays on your board; don't commit it or share it.
+
+   > **Upgrading from an older version?** It kept Wi-Fi details in `secrets.py`, which is no
+   > longer used. Move your network name and password into `settings.toml`, then delete
+   > `secrets.py` from the drive. The Adafruit IO account is no longer needed either.
+6. Edit the `PAGES` list in `config.py` to use your stops (see below). The board restarts
+   whenever you save a file.
+
+The drive should look like this:
 ```
-I:\
-│   api.py
-|   code.py
-│   config.py
-│   secrets.py
-│   time_set.py
-│   train_board.py
-│
-└───\lib folder, including all files in it
+CIRCUITPY
+├── code.py  config.py  transit.py  clock.py  screen.py
+├── settings.toml
+└── lib/
 ```
-### Internet and Adafruit IO config
 
-6. To connect to  internet, you need to open *secrets.py* and add your wifi ssid and password to respective `secrets` dict keys that say `"enter_your_info"`.
-7. Register for an [adafruitio](https://io.adafruit.com/) account and get a username and API key.
-The board needs to regularly synchronize its onboard clock using a free time service through adafruit io. It's free and intended to support hobby projects.
-8. Add your aio username and API key to the `secrets` dict in *secrets.py*.
+## Choosing stops
+Every stop entry needs the **stop number** (printed on the stop sign and shown in the Transit
+app) and a **route**. Bus stops serve only one direction, so pick the stop on the side of the
+street you board from. Rail stations have a separate stop number for each platform.
 
-## Transit board config
+To search every GCRTA stop from your computer (Python 3.8+, no packages needed):
 
-The board will  reload and start showing you default routes! **You now need to configure it to show your desired stops/routes.**
+```
+python tools/find_stops.py lorain 117              # stops whose name contains both words
+python tools/find_stops.py lorain --route 22       # only stops served by route 22
+python tools/find_stops.py 7694 --live             # live arrivals at stop 7694 right now
+```
 
-### Customize your stops in the *config.py*.  
+`--live` uses the key from `settings.toml`, so it's a quick way to check a stop before you
+put it on the board.
 
-9. Each route/stop/direction combination requires a Python dict with these 3 key:values. The 3rd key, *params*, is a nested dictionary object with 6 key-values.
-    - route_name: *str*, what will display, like "26" or "HL"
-    - route_color: *int*, hex color for bar (e.g. 0xff0000 for red)
-    - params: *dict*, GCRTA's Live Departure service request parameters, explained below
-      - 'routeID': ⚠ *Get from Live Departures*  
-      - 'directionID': ⚠ _Get from Live Departures_  
-      - 'stopID': ⚠ _Get from Live Departures_  
-      - 'cutoff': *int* Trips arriving sooner than this time will be tossed out because they are impossible to reach the stop in time
-      - 'tpID': 0,
-      - 'useArrivalTimes': 'false'
+Each page holds any number of entries. The board shows the 3 soonest, and pages rotate
+every `PAGE_SECONDS`. Optional per-entry keys are `label` (badge text), `color` (badge color),
+`min_minutes` (hide buses you can't make in time) and `headsign` (only count trips whose
+destination contains this text). All the details are in the comments at the top of `config.py`.
 
-**The board can only fit 3 rows on it.** If you are fetching more than 3 routes, it will display the 3
-soonest arrivals in order of their arrival
+Badge colors, text colors and timing are set near the bottom of `config.py`.
 
-### Gettings `params` from GCRTA Live Departures
+## How it behaves
+- **Refresh:** each stop is refreshed every `FETCH_SECONDS` (30 s by default), one request
+  per loop pass, so pages keep rotating while data loads. A small dot left of the clock
+  lights up during a request.
+- **Countdown:** minutes count down on the board between refreshes.
+- **Stale data:** a stop that can't be refreshed for `STALE_SECONDS` drops off rather than
+  showing stale times.
+- **Messages:** `NO DATA` means nothing has loaded yet. `NONE SOON` means data loaded but no
+  arrivals passed the cutoffs.
+- **Clock:** set from NTP through the Wi-Fi chip, with the Swiftly server time as a fallback.
+  US daylight saving time is handled automatically.
+- **Recovery:** after repeated failures the board resets Wi-Fi. If no data arrives for
+  10 minutes, it soft-reloads.
+- **Debugging:** with `DEBUG = True`, the serial console shows each request's time and the
+  free memory.
 
-10. Go to Live Departures on [GCRTA homepage](https://www.riderta.com/). This service is powered by web service that delivers
-live departure updates from RTA's TransitMaster system, which is the central brain of RTA's operations, scheduling, and 
-serving the RTA real time feed. This board essentially simulates using the RTA website. **You need collect 2 lists of route config entries: one for each direction of the route.**
-
-11. For each route/direction/stop combo, you need to:
-    1. Enter the desired route, direction, and stop on Live Departures.
-    2. Open devtools for your browser (Ctrl + Shift + I) --*Chrome is recommended if you aren't familiar with this*
-    3. Go to "Network" tab
-    4. Wait up to 15 seconds for the browser to fetch the update again (it automatically does this)
-    5. You should see a network action appear called *getStopTimes*. Click on it
-    6. Click on *Payload*
-    7. Use the parameters from that payload to fill out the `params` dict in the desired route dict.
-
-    Store the first set of config entries in `routes_in` list.
-
-    Collect the same information for the opposite direction in `routes_out` list. See `config.py` for details.
-
-## Finish Line 🏁🎉
-12. Upon saving your `config.py` with your desired routes, the board will reboot and populate with your configured route/direction/stops.
+## Files
+| File | Purpose |
+|---|---|
+| `src/code.py` | Startup, Wi-Fi, main loop |
+| `src/config.py` | Your stops and display options |
+| `src/transit.py` | Fetches and filters Swiftly predictions |
+| `src/screen.py` | LED matrix layout |
+| `src/clock.py` | Time sync and time zone |
+| `src/settings.toml.example` | Template for Wi-Fi and API key (your copy stays private) |
+| `src/lib/` | Fonts and CircuitPython 10 libraries |
+| `tools/find_stops.py` | Stop finder, runs on your computer |
+| `tools/preview.py` | For developers changing `screen.py`: draws the screen to a PNG on your computer |

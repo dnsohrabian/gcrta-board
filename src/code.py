@@ -1,106 +1,119 @@
-# type: ignore
-
+# Transit arrivals board for the Adafruit Matrix Portal M4 (CircuitPython 10).
+# Edit config.py for stops and display options, settings.toml for Wi-Fi and API key.
+import gc
+import os
 import time
-import supervisor
 
-# internet setup modules
 import board
 import busio
+import supervisor
 from digitalio import DigitalInOut
-import adafruit_requests as requests
-import adafruit_esp32spi.adafruit_esp32spi_socket as socket
+import adafruit_connection_manager
+import adafruit_requests
 from adafruit_esp32spi import adafruit_esp32spi
 
-# config is one dict container. it sets certain parameters for the API.
-# most of it is truly not customizable and will break the whole library if changed
+import config
+import clock
+import screen
+import transit
 
-from config import config
+# ------------------------------------------------------------------ settings
+ssid = os.getenv("CIRCUITPY_WIFI_SSID")
+password = os.getenv("CIRCUITPY_WIFI_PASSWORD")
+if not ssid:
+    raise RuntimeError("Set CIRCUITPY_WIFI_SSID and CIRCUITPY_WIFI_PASSWORD in settings.toml")
+api_key = os.getenv("SWIFTLY_API_KEY")
+if not api_key:
+    raise RuntimeError("Set SWIFTLY_API_KEY in settings.toml (see settings.toml.example)")
 
-# other pieces of my code in root
-import api  # module sets up my internet
-import time_set
-import train_board
+# ------------------------------------------------------------------ display
+pages = config.PAGES
+display = screen.Screen()
+display.show_message("TRANSIT", "CONNECTING")
 
-# Connecting to internet, grabbed straight from Internet Connect!
-
+# ------------------------------------------------------------------ Wi-Fi
 esp32_cs = DigitalInOut(board.ESP_CS)
 esp32_ready = DigitalInOut(board.ESP_BUSY)
 esp32_reset = DigitalInOut(board.ESP_RESET)
-
 spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
 esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
-requests.set_socket(socket, esp)
+print("ESP32 firmware:", esp.firmware_version)
 
-print("Connecting to AP...")
-while not esp.is_connected:
-    try:
-        esp.connect_AP(config["wifi_ssid"], config["wifi_password"])
-    except (RuntimeError, ConnectionError) as e:
-        print("could not connect to AP, retrying: ", e)
-        continue
-print("Connected to", str(esp.ssid, "utf-8"), "\tRSSI:", esp.rssi)
+pool = adafruit_connection_manager.get_radio_socketpool(esp)
+ssl_context = adafruit_connection_manager.get_radio_ssl_context(esp)
+session = adafruit_requests.Session(pool, ssl_context)
 
-# after internet connects, I set the local time with aio
-time_set.get_local_time()
-print("Set to local time.")
 
-# Create API object which has method to fetch all predictions in a list
-# The API object requires the wifi device (esp) object to control requests
-transit_api = api.RealTimeAPI(esp)
+def connect(max_tries=None):
+    tries = 0
+    while not esp.is_connected:
+        tries += 1
+        try:
+            esp.connect_AP(ssid, password)
+        except (OSError, RuntimeError, ConnectionError) as e:
+            print("Wi-Fi connect failed (%d): %r" % (tries, e))
+            if max_tries and tries >= max_tries:
+                return False
+            time.sleep(2)
+    print("Connected to", esp.ap_info.ssid, "RSSI", esp.ap_info.rssi)
+    return True
 
-# Create the TrainBoard object which orchestrates the display,
-t = train_board.TrainBoard(transit_api.fetch_predictions)
 
-# Set up key timings
-sleep_seconds = config["refresh_interval"]  # number of seconds to wait between cycles
-clock_reset_minutes = 180 # How often to reset the board's clock, in minutes
-cycles_until_clock_reset = (clock_reset_minutes * 60)/ sleep_seconds  # number of cycles until clock is synchronized again
+def reconnect():
+    print("Resetting Wi-Fi")
+    display.set_busy(True)
+    adafruit_connection_manager.connection_manager_close_all(pool)
+    esp.reset()
+    if not connect(max_tries=10):
+        print("Wi-Fi did not come back; reloading")
+        supervisor.reload()
 
-# Set loop parameters to starting state
-inbound = False
-counter = 0
+
+connect()
+
+# ------------------------------------------------------------------ main loop
+arrivals = transit.Transit(session, api_key, reconnect)
+clock.sync(esp)
+
+page_index = len(pages) - 1
+next_page = 0.0
+next_draw = 0.0
+next_clock_sync = time.monotonic() + config.CLOCK_SYNC_HOURS * 3600
+RELOAD_AFTER_SECONDS = 600  # no successful fetch for this long -> soft reset
 
 while True:
-    counter += 1
-    inbound = not inbound
-    print(
-        f"Beginning cycle {counter} of {cycles_until_clock_reset}, Direction: {"Inbound" if inbound else "Outbound"}"
-    )
-    if (
-        counter > cycles_until_clock_reset
-    ):  # this block tells it to resync the clock from Adafruit clock service, by default 6 hours if cycle = 30 seconds
-        try:
-            time_set.get_local_time()  # this is done because the onboard clock starts lagging
-            counter = 0
-            print("Reset cycle counter to 0. Updated time")
-        except Exception as e:
-            print("Time sync error.")
-    t.loading_dot_grp.hidden = (
-        False  # Corner blue dot on LED panel to indicate it's running its cycle
-    )
-    try:
-        if inbound:
-            t.refresh(
-                config["routes_in"], direction="in"
-            )  # Main update function, grabs all routes info via API object and updates text and graphic objects
-        else:
-            t.refresh(config["routes_out"], direction="out")
-    except (
-        ConnectionError
-    ):  # If the error catching and resetting in the above code fails, it's code red, time to soft reset
-        supervisor.reload()
-    t.loading_dot_grp.hidden = True  # Dot off while not actively fetching new data
+    now = time.monotonic()
 
-    # Sleep between fetching more updates
-    # This loop will flip between directions twice during sleep
-    begin = time.monotonic()
-    direction_flip_times = 2
-    direction_flips = 0
-    flip_duration = sleep_seconds / direction_flip_times
-    print(
-        f"Sleeping {sleep_seconds} seconds with direction flip every {flip_duration} seconds"
-    )
-    while direction_flips < direction_flip_times:
-        time.sleep(flip_duration)
-        t.flip_direction()
-        direction_flips += 1
+    # 1. Refresh at most one stop per pass so the display keeps rotating
+    if arrivals.busy(now):
+        display.set_busy(True)
+        if arrivals.refresh_next(now):
+            next_draw = 0  # show new data right away
+        display.set_busy(False)
+        now = time.monotonic()
+        if now - arrivals.last_success > RELOAD_AFTER_SECONDS:
+            print("No data for %d s; reloading" % RELOAD_AFTER_SECONDS)
+            supervisor.reload()
+
+    # 2. Rotate pages
+    if now >= next_page:
+        page_index = (page_index + 1) % len(pages)
+        next_page = now + config.PAGE_SECONDS
+        next_draw = 0
+
+    # 3. Redraw (also every few seconds so minutes count down)
+    if now >= next_draw:
+        page = pages[page_index]
+        rows, status = arrivals.rows(page, now, screen.ROWS)
+        display.show_page(page["title"], rows, status, now)
+        display.set_clock(clock.now_text() if clock.is_set() else "")
+        next_draw = now + 5
+
+    # 4. Keep the clock honest
+    if now >= next_clock_sync or (not clock.is_set() and arrivals.server_utc):
+        clock.sync(esp, arrivals, tries=1)
+        next_clock_sync = now + config.CLOCK_SYNC_HOURS * 3600
+
+    # 5. Scroll long destinations
+    display.scroll(now)
+    time.sleep(0.03)

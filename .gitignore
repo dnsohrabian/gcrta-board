@@ -1,3 +1,7 @@
+# Private: Wi-Fi password and API key
+settings.toml
+
+__pycache__/
+tools/.cache/
+preview.png
 /.idea
-.gitignore
-./src/secrets.py
