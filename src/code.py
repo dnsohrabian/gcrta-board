@@ -29,7 +29,7 @@ if not api_key:
 # ------------------------------------------------------------------ display
 pages = config.PAGES
 display = screen.Screen()
-display.show_message("TRANSIT", "CONNECTING")
+display.show_message("GCRTA-BOARD", "CONNECTING")
 
 # ------------------------------------------------------------------ Wi-Fi
 esp32_cs = DigitalInOut(board.ESP_CS)
@@ -78,25 +78,27 @@ clock.sync(esp)
 page_index = len(pages) - 1
 next_page = 0.0
 next_draw = 0.0
-next_clock_sync = time.monotonic() + config.CLOCK_SYNC_HOURS * 3600
+next_clock_sync = time.monotonic() + config.CLOCK_SYNC_MINUTES * 60
 RELOAD_AFTER_SECONDS = 600  # no successful fetch for this long -> soft reset
 
 while True:
     now = time.monotonic()
 
-    # 1. Refresh at most one stop per pass so the display keeps rotating
-    if arrivals.busy(now):
+    # 1. Refresh at most one stop per pass so the display keeps rotating. A fetch blocks
+    #    for a second or two, so wait until no destination is mid-scroll.
+    if arrivals.busy(now) and display.resting():
         display.set_busy(True)
         if arrivals.refresh_next(now):
             next_draw = 0  # show new data right away
         display.set_busy(False)
+        display.resume()
         now = time.monotonic()
         if now - arrivals.last_success > RELOAD_AFTER_SECONDS:
             print("No data for %d s; reloading" % RELOAD_AFTER_SECONDS)
             supervisor.reload()
 
-    # 2. Rotate pages
-    if now >= next_page:
+    # 2. Rotate pages, after every long destination on this one has scrolled once
+    if now >= next_page and display.scrolled_all():
         page_index = (page_index + 1) % len(pages)
         next_page = now + config.PAGE_SECONDS
         next_draw = 0
@@ -105,15 +107,17 @@ while True:
     if now >= next_draw:
         page = pages[page_index]
         rows, status = arrivals.rows(page, now, screen.ROWS)
-        display.show_page(page["title"], rows, status, now)
+        display.show_page(page["title"], rows, status)
         display.set_clock(clock.now_text() if clock.is_set() else "")
         next_draw = now + 5
 
-    # 4. Keep the clock honest
-    if now >= next_clock_sync or (not clock.is_set() and arrivals.server_utc):
+    # 4. Keep the clock honest. The board's own clock drifts by minutes a day; the ESP32
+    #    keeps accurate NTP time, and asking it is quick.
+    if (now >= next_clock_sync or (not clock.is_set() and arrivals.server_utc)) and display.resting():
         clock.sync(esp, arrivals, tries=1)
-        next_clock_sync = now + config.CLOCK_SYNC_HOURS * 3600
+        next_clock_sync = now + config.CLOCK_SYNC_MINUTES * 60
+        next_draw = 0  # show the corrected time
 
-    # 5. Scroll long destinations
-    display.scroll(now)
-    time.sleep(0.03)
+    # 5. Scroll long destinations, then sleep until the next pixel step is due so every
+    #    step lasts the same time
+    time.sleep(min(display.scroll(), 0.1))

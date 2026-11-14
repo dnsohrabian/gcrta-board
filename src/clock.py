@@ -39,7 +39,10 @@ def utc_offset_seconds(utc):
 
 
 def set_from_utc(utc):
-    rtc.RTC().datetime = time.localtime(int(utc) + utc_offset_seconds(int(utc)))
+    local = int(utc) + utc_offset_seconds(int(utc))
+    if is_set():
+        print("Clock was off by %+d s" % (time.time() - local))
+    rtc.RTC().datetime = time.localtime(local)
 
 
 def sync(esp, transit=None, tries=5):

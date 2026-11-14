@@ -53,10 +53,10 @@ PAGES = [
 AGENCY = "cleveland"     # Swiftly agency key (GCRTA = "cleveland")
 MIN_MINUTES = 4          # default cutoff: hide arrivals sooner than this
 TIMES_PER_ROW = 1        # 1: next arrival only, large  |  2: next two, e.g. "5,31", smaller
-PAGE_SECONDS = 8         # how long each page stays on screen
+PAGE_SECONDS = 8         # how long each page stays on screen (longer if names need to scroll)
 FETCH_SECONDS = 30       # how often each stop is refreshed (GCRTA data updates ~every 30 s)
 STALE_SECONDS = 180      # drop a stop's data if it couldn't be refreshed for this long
-CLOCK_SYNC_HOURS = 6     # how often to re-sync the clock from the internet
+CLOCK_SYNC_MINUTES = 10  # how often to re-sync the clock (the board's own clock drifts)
 CLOCK_24H = True         # 15:53 (True) or 3:53 (False)
 DEBUG = True             # print fetch timings and free memory to the serial console
 

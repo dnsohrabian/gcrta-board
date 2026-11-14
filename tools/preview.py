@@ -122,7 +122,7 @@ class Group(list):
 
 class Matrix:
     def __init__(self, **_):
-        self.display = types.SimpleNamespace(root_group=None)
+        self.display = types.SimpleNamespace(root_group=None, refresh=lambda **kw: True)
 
 
 def install_fakes(fonts):
@@ -241,8 +241,9 @@ def main():
     display.set_clock("15:53")
     frames = []
     for start in range(0, len(rows), screen.ROWS):
-        display.show_page(page["title"], rows[start:start + screen.ROWS], None, 0.0)
-        display.scroll(6.0)  # partway through scrolling long destinations
+        display.show_page(page["title"], rows[start:start + screen.ROWS], None)
+        display._scroll_start = screen._ms() - 6000  # partway through scrolling long destinations
+        display.scroll()
         frames.append(render(display.matrix.display.root_group))
     display.show_message(config.PAGES[-1]["title"], "NONE SOON")
     frames.append(render(display.matrix.display.root_group))
