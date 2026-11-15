@@ -8,8 +8,6 @@ import board
 import busio
 import supervisor
 from digitalio import DigitalInOut
-import adafruit_connection_manager
-import adafruit_requests
 from adafruit_esp32spi import adafruit_esp32spi
 
 import config
@@ -39,10 +37,6 @@ spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
 esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
 print("ESP32 firmware:", esp.firmware_version)
 
-pool = adafruit_connection_manager.get_radio_socketpool(esp)
-ssl_context = adafruit_connection_manager.get_radio_ssl_context(esp)
-session = adafruit_requests.Session(pool, ssl_context)
-
 
 def connect(max_tries=None):
     tries = 0
@@ -62,7 +56,7 @@ def connect(max_tries=None):
 def reconnect():
     print("Resetting Wi-Fi")
     display.set_busy(True)
-    adafruit_connection_manager.connection_manager_close_all(pool)
+    arrivals.close()
     esp.reset()
     if not connect(max_tries=10):
         print("Wi-Fi did not come back; reloading")
@@ -72,7 +66,7 @@ def reconnect():
 connect()
 
 # ------------------------------------------------------------------ main loop
-arrivals = transit.Transit(session, api_key, reconnect)
+arrivals = transit.Transit(esp, api_key, reconnect)
 clock.sync(esp)
 
 page_index = len(pages) - 1
@@ -80,44 +74,65 @@ next_page = 0.0
 next_draw = 0.0
 next_clock_sync = time.monotonic() + config.CLOCK_SYNC_MINUTES * 60
 RELOAD_AFTER_SECONDS = 600  # no successful fetch for this long -> soft reset
+STEP_BUDGET = 0.045  # s: do other work only when this much time is left before the next scroll step
 
 while True:
+    # Scroll first, the moment the step is due, then use the time until the next step
+    # for at most one other short job, so nothing ever delays the motion.
+    step_due = time.monotonic() + display.scroll()
     now = time.monotonic()
 
-    # 1. Refresh at most one stop per pass so the display keeps rotating. A fetch blocks
-    #    for a second or two, so wait until no destination is mid-scroll.
-    if arrivals.busy(now) and display.resting():
-        display.set_busy(True)
-        if arrivals.refresh_next(now):
-            next_draw = 0  # show new data right away
-        display.set_busy(False)
-        display.resume()
-        now = time.monotonic()
-        if now - arrivals.last_success > RELOAD_AFTER_SECONDS:
-            print("No data for %d s; reloading" % RELOAD_AFTER_SECONDS)
-            supervisor.reload()
+    if now - arrivals.last_success > RELOAD_AFTER_SECONDS:
+        print("No data for %d s; reloading" % RELOAD_AFTER_SECONDS)
+        supervisor.reload()
 
-    # 2. Rotate pages, after every long destination on this one has scrolled once
-    if now >= next_page and display.scrolled_all():
+    if step_due - now < STEP_BUDGET:
+        pass  # no time for anything else before the next step
+
+    # Rotate pages, after every long destination on this one has gone round once
+    elif now >= next_page and display.scrolled_all():
         page_index = (page_index + 1) % len(pages)
         next_page = now + config.PAGE_SECONDS
         next_draw = 0
+        continue  # draw it right away
 
-    # 3. Redraw (also every few seconds so minutes count down)
-    if now >= next_draw:
+    # Redraw (also every few seconds so minutes count down)
+    elif now >= next_draw:
         page = pages[page_index]
         rows, status = arrivals.rows(page, now, screen.ROWS)
         display.show_page(page["title"], rows, status)
         display.set_clock(clock.now_text() if clock.is_set() else "")
         next_draw = now + 5
 
-    # 4. Keep the clock honest. The board's own clock drifts by minutes a day; the ESP32
-    #    keeps accurate NTP time, and asking it is quick.
-    if (now >= next_clock_sync or (not clock.is_set() and arrivals.server_utc)) and display.resting():
+    # One short piece of the request in flight (see transit.py)
+    elif arrivals.fetching():
+        if arrivals.poll():
+            next_draw = 0  # show new data right away
+        if not arrivals.fetching():
+            display.set_busy(False)
+
+    # Start refreshing the next stop that is due. Quick on an open connection; opening
+    # one blocks for ~2 s, so that waits until nothing is moving.
+    elif arrivals.due(now) and (arrivals.connected() or display.resting()):
+        display.set_busy(True)
+        blocking = not arrivals.connected()
+        arrivals.start(now)
+        if blocking:
+            display.resume()
+        if not arrivals.fetching():
+            display.set_busy(False)
+
+    # Keep the clock honest. The board's own clock drifts by minutes a day; the ESP32
+    # keeps accurate NTP time, and asking it is quick.
+    elif (now >= next_clock_sync or (not clock.is_set() and arrivals.server_utc)) and display.resting():
         clock.sync(esp, arrivals, tries=1)
         next_clock_sync = now + config.CLOCK_SYNC_MINUTES * 60
         next_draw = 0  # show the corrected time
 
-    # 5. Scroll long destinations, then sleep until the next pixel step is due so every
-    #    step lasts the same time
-    time.sleep(min(display.scroll(), 0.1))
+    # Collect garbage (~17 ms) now, before Python does it at a random moment
+    elif gc.mem_free() < 24000:
+        gc.collect()
+
+    # Sleep until the next step; check back sooner while there is work waiting
+    busy = arrivals.fetching() or arrivals.due(now)
+    time.sleep(max(0, min(step_due - time.monotonic(), 0.01 if busy else 0.1)))

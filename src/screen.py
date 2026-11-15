@@ -14,12 +14,15 @@ masks so only the middle of each row shows through, and scrolling only moves a l
 it never re-renders one. Re-rendering text is the slow part, so it happens only when
 the text actually changes.
 
-Long destinations take turns, one row at a time: rest at the start, scroll, rest at the
-end, jump back, then the next long row. The panel can't redraw several moving rows
-smoothly. code.py fetches data only while the text is resting, because
-a fetch blocks for a second or two and would otherwise freeze the text mid-scroll.
-Scroll timing uses integer milliseconds: time.monotonic() is a float that gets too coarse
-for smooth motion after a day or two of uptime.
+Long destinations scroll as a continuous marquee, all at once: rest at the start so
+the name can be read, then loop around nonstop until the page changes. A looping label
+holds its text twice ("NAME   NAME") and moves left by one copy's width before snapping
+back, which looks seamless, so the text is never re-rendered while it moves.
+A redraw takes ~8-12 ms, well inside the 80 ms between pixel steps, so several moving
+rows are no trouble. code.py does network work in short slices between steps (see
+transit.py) so it never stalls the motion. Scroll timing uses integer milliseconds:
+time.monotonic() is a float that gets too coarse for smooth motion after a day or two
+of uptime.
 """
 import time
 
@@ -41,9 +44,9 @@ DEST_X = BADGE_WIDTH + 2
 TIMES_WIDTH = 10 if config.TIMES_PER_ROW == 1 else 20
 DEST_END = WIDTH - TIMES_WIDTH - 4  # keep 4 px clear before the minutes
 
-SCROLL_HOLD = 2000      # ms to rest at the start of a long destination
-SCROLL_END_HOLD = 1000  # ms to rest at the end before jumping back
+SCROLL_HOLD = 2000      # ms to rest before long destinations start moving
 SCROLL_STEP = 80        # ms per pixel (~12 px/s)
+SCROLL_GAP = "   "      # between the end of a looping name and its next start
 
 GAMMA = 2.2
 
@@ -76,6 +79,11 @@ def _ink(font, text):
     return (first or 0), (last or 0)
 
 
+def _advance(font, text):
+    """Width of text in pixels, as the label lays it out."""
+    return sum(font.get_glyph(ord(ch)).shift_x for ch in text)
+
+
 def _label(font, rgb, anchor, position, text=""):
     return Label(font, text=text, color=color(rgb), anchor_point=anchor, anchored_position=position)
 
@@ -92,6 +100,7 @@ class Row:
         self.top = top
         # A label's ink starts 1 px below its anchored y. Badge digits (6 px) fill rows
         # top+1..top+6 of the 8 px badge; destination letters (5 px) end on the same row.
+        self.small = small
         self.dest = _label(small, config.DEST_COLOR, (0, 0), (DEST_X, top + 1))
         back.append(self.dest)
 
@@ -109,7 +118,8 @@ class Row:
             front.append(part)
 
         self._rgb = None
-        self.overflow = 0      # pixels of destination that don't fit
+        self._name = None
+        self.period = 0        # pixels per marquee loop; 0 if the destination fits
         self._offset = 0
         self.hide()
 
@@ -122,10 +132,16 @@ class Row:
             first, last = _ink(self.font, label)
             self.route.anchored_position = ((BADGE_WIDTH - (last - first + 1)) // 2 - first, self.top)
         _set_text(self.times, ",".join(str(min(m, 99)) for m in minutes))
-        changed = _set_text(self.dest, dest)
+        changed = dest != self._name
         if changed:
+            self._name = dest
+            self.period = 0
+            text = dest
             # the last column of a label is blank letter spacing
-            self.overflow = max(0, self.dest.bounding_box[2] - 1 - (DEST_END - DEST_X))
+            if _advance(self.small, dest) - 1 > DEST_END - DEST_X:
+                text = dest + SCROLL_GAP + dest
+                self.period = _advance(self.small, dest + SCROLL_GAP)
+            self.dest.text = text
             self.move(0)
         for part in self.parts:
             part.hidden = False
@@ -179,7 +195,7 @@ class Screen:
         # the next, which splits a scroll step over two slow frames.
         self.matrix.display.auto_refresh = False
         self._scroll_start = _ms()  # start of the current scroll cycle
-        self._frames = self._frame_ms = self._frame_max = 0  # DEBUG: scroll redraw cost
+        self._frames = self._frame_ms = self._frame_max = self._late_max = 0  # DEBUG: scroll timing
 
     def refresh(self):
         """Draw whatever changed since the last refresh."""
@@ -208,72 +224,58 @@ class Screen:
         if changed:
             self._scroll_start = _ms()  # new text: start the turns over from the top row
 
-    def _turns(self):
-        """The long rows on screen and how long each one's turn lasts, in ms."""
-        rows = [row for row in self.rows if row.overflow and not row.dest.hidden]
-        return rows, [SCROLL_HOLD + row.overflow * SCROLL_STEP + SCROLL_END_HOLD for row in rows]
+    def _longest(self):
+        """Longest marquee loop on screen, in pixels (0: nothing scrolls)."""
+        most = 0
+        for row in self.rows:
+            if not row.dest.hidden and row.period > most:
+                most = row.period
+        return most
 
     def scrolled_all(self):
-        """True once every long destination on the page has had its turn."""
-        _, lengths = self._turns()
-        return _ms() - self._scroll_start >= sum(lengths)
-
-    def _turn(self):
-        """(row, t, length): the long row whose turn it is to scroll, ms into its turn, and
-        the turn's length. Long rows take turns: the panel can't redraw several moving
-        rows smoothly. (None, 0, 0) when nothing needs to scroll."""
-        rows, lengths = self._turns()
-        if not rows:
-            return None, 0, 0
-        t = (_ms() - self._scroll_start) % sum(lengths)
-        for row, length in zip(rows, lengths):
-            if t < length:
-                return row, t, length
-            t -= length
-        return rows[-1], lengths[-1] - 1, lengths[-1]  # not reached
+        """True once every long destination on the page has gone round at least once."""
+        return _ms() - self._scroll_start >= SCROLL_HOLD + self._longest() * SCROLL_STEP
 
     def scroll(self):
-        """Move the long destination whose turn it is, then redraw what changed.
+        """Move the long destinations, then redraw what changed.
         Returns seconds until the next pixel step."""
-        current, t, length = self._turn()
-        if current is None:
+        if not self._longest():
             self.refresh()
             return 0.1
-        moving = t - SCROLL_HOLD
-        step = min(current.overflow, max(0, moving // SCROLL_STEP))
+        t = _ms() - self._scroll_start
+        steps = max(0, t - SCROLL_HOLD) // SCROLL_STEP
         moved = False
         for row in self.rows:
-            moved = row.move(step if row is current else 0) or moved
+            moved = row.move(steps % row.period if row.period else 0) or moved
         start = _ms()
         self.refresh()
         if moved and config.DEBUG:
-            took = _ms() - start
-            self._frames += 1
-            self._frame_ms += took
-            self._frame_max = max(self._frame_max, took)
-            if self._frames == 100:
-                print("Scroll redraw: avg %d ms, max %d ms" % (self._frame_ms // 100, self._frame_max))
-                self._frames = self._frame_ms = self._frame_max = 0
-        current, t, length = self._turn()  # the redraw took time: measure the wait from now
-        moving = t - SCROLL_HOLD
-        if moving < 0:
-            wait = -moving
-        elif moving < current.overflow * SCROLL_STEP:
-            wait = SCROLL_STEP - moving % SCROLL_STEP
-        else:
-            wait = length - t
-        return wait / 1000
+            # how long after it was due this step was drawn: the measure of choppiness
+            self._debug_frame(_ms() - start, t - SCROLL_HOLD - steps * SCROLL_STEP)
+        # Wait for the step after the one just drawn. (Recomputing the step from the
+        # clock here would skip one whenever the redraw ends on a step boundary.)
+        due = SCROLL_HOLD + (steps + 1) * SCROLL_STEP if t >= SCROLL_HOLD else SCROLL_HOLD
+        return max(0, due - (_ms() - self._scroll_start)) / 1000
+
+    def _debug_frame(self, took, late):
+        self._frames += 1
+        self._frame_ms += took
+        self._frame_max = max(self._frame_max, took)
+        self._late_max = max(self._late_max, late)
+        if self._frames == 100:
+            print("Scroll: redraw avg %d ms, max %d ms; step late max %d ms"
+                  % (self._frame_ms // 100, self._frame_max, self._late_max))
+            self._frames = self._frame_ms = self._frame_max = self._late_max = 0
 
     def resting(self):
-        """True when no destination is in motion, so a blocking task won't show."""
-        current, t, _ = self._turn()
-        return current is None or not SCROLL_HOLD <= t < SCROLL_HOLD + current.overflow * SCROLL_STEP
+        """True when nothing is in motion, so a blocking task won't show."""
+        return not self._longest() or _ms() - self._scroll_start < SCROLL_HOLD
 
     def resume(self):
-        """Call after a blocking task. If it ran past the rest into the scrolling part,
-        start that row's scroll from its first pixel now instead of jumping ahead."""
-        current, t, _ = self._turn()
-        if not self.resting():
+        """Call after a blocking task that started while resting. If it ran past the
+        rest, start moving from the first pixel now instead of jumping ahead."""
+        t = _ms() - self._scroll_start
+        if t > SCROLL_HOLD:
             self._scroll_start += t - SCROLL_HOLD
 
     def set_clock(self, text):

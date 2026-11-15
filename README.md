@@ -83,16 +83,19 @@ python tools/find_stops.py 7694 --live             # live arrivals at stop 7694 
 put it on the board.
 
 Each page holds any number of entries. The board shows the 3 soonest, and pages rotate
-every `PAGE_SECONDS`. Optional per-entry keys are `label` (badge text), `color` (badge color),
-`min_minutes` (hide buses you can't make in time) and `headsign` (only count trips whose
-destination contains this text). All the details are in the comments at the top of `config.py`.
+every `PAGE_SECONDS` (longer if a destination needs more time to scroll). Optional
+per-entry keys are `label` (badge text), `color` (badge color), `min_minutes` (hide buses
+you can't make in time) and `headsign` (only count trips whose destination contains this
+text). All the details are in the comments at the top of `config.py`.
 
 Badge colors, text colors and timing are set near the bottom of `config.py`.
 
 ## How it behaves
-- **Refresh:** each stop is refreshed every `FETCH_SECONDS` (30 s by default), one request
-  per loop pass, so pages keep rotating while data loads. A small dot left of the clock
-  lights up during a request.
+- **Refresh:** each stop is refreshed every `FETCH_SECONDS` (30 s by default), one at a
+  time. Requests run in small pieces between scroll steps, so text keeps moving while data
+  loads. A small dot left of the clock lights up during a request.
+- **Scrolling:** destinations too long for their space pause briefly, then loop
+  continuously. A page stays up until its longest destination has gone around once.
 - **Countdown:** minutes count down on the board between refreshes.
 - **Stale data:** a stop that can't be refreshed for `STALE_SECONDS` drops off rather than
   showing stale times.
@@ -102,8 +105,8 @@ Badge colors, text colors and timing are set near the bottom of `config.py`.
   US daylight saving time is handled automatically.
 - **Recovery:** after repeated failures the board resets Wi-Fi. If no data arrives for
   10 minutes, it soft-reloads.
-- **Debugging:** with `DEBUG = True`, the serial console shows each request's time and the
-  free memory.
+- **Debugging:** with `DEBUG = True`, the serial console shows each request's time, the
+  free memory and how smoothly text is scrolling.
 
 ## Files
 | File | Purpose |
