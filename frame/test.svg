@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- test corners: face (1 hole), spacer (2 holes). Cut first. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="140mm" height="70mm" viewBox="0 0 140 70">
+  <path d="M 5.000,5.000 L 65.000,5.000 L 65.000,18.050 L 18.050,18.050 L 18.050,65.000 L 5.000,65.000 Z" fill="none" stroke="#FF0000" stroke-width="0.025"/>
+  <circle cx="11.525" cy="53.000" r="1.5" fill="none" stroke="#FF0000" stroke-width="0.025"/>
+  <path d="M 75.000,5.000 L 135.000,5.000 L 135.000,16.500 L 86.500,16.500 L 86.500,65.000 L 75.000,65.000 Z" fill="none" stroke="#FF0000" stroke-width="0.025"/>
+  <circle cx="80.750" cy="53.000" r="1.5" fill="none" stroke="#FF0000" stroke-width="0.025"/>
+  <circle cx="80.750" cy="45.000" r="1.5" fill="none" stroke="#FF0000" stroke-width="0.025"/>
+</svg>

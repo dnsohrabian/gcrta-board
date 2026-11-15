@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- spacer: cut 2. Ring 408 x 216 mm. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="609.6mm" height="304.8mm" viewBox="0 0 609.6 304.8">
+  <rect x="5.000" y="5.000" width="408.000" height="216.000" rx="3" ry="3" fill="none" stroke="#FF0000" stroke-width="0.025"/>
+  <rect x="16.500" y="16.500" width="385.000" height="193.000" fill="none" stroke="#FF0000" stroke-width="0.025"/>
+</svg>
