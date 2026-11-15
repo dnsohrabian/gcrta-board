@@ -11,16 +11,29 @@ Each row shows a colored route badge, the destination (long names scroll) and th
 until the next arrival. Set `TIMES_PER_ROW = 2` to show the next two, like "15,29".
 Pages rotate between groups of stops, e.g. inbound and outbound.
 
-Arrival data is provided by the Greater Cleveland Regional Transit Authority (GCRTA)
-through [Swiftly](https://www.goswift.ly/), its real-time data provider, under GCRTA's
-[developer license](https://www.riderta.com/developers). This project is not affiliated
-with or endorsed by GCRTA.
+## Quick start
+1. Get a Matrix Portal M4 and a 64x32 LED panel ([Hardware](#hardware)).
+2. Install CircuitPython 10 and update the Wi-Fi chip's firmware to NINA 3.x ([Setup](#setup)).
+3. Copy `src/` onto the `CIRCUITPY` drive, rename `settings.toml.example` to
+   `settings.toml` and add your Wi-Fi.
+4. Find your stop numbers: `python tools/find_stops.py lorain fulton`
+   ([Find your stop numbers](#1-find-your-stop-numbers)).
+5. Put them in `PAGES` in `config.py`, and set `min_minutes` to your walk to each stop
+   ([Setting up your stops](#setting-up-your-stops)).
 
-The board asks for one stop at a time, and each request returns a few KB of JSON.
-
-CircuitPython is a friendly version of Python for small devices, made by
-[Adafruit](https://www.adafruit.com/), who make and sell educational and hobby electronics,
-publish great guides, and are a woman-owned business in NYC. Check them out.
+## Contents
+- [Hardware](#hardware)
+- [Setup](#setup)
+- [Setting up your stops](#setting-up-your-stops)
+  - [1. Find your stop numbers](#1-find-your-stop-numbers)
+  - [2. Build your pages](#2-build-your-pages)
+  - [3. Set walking-time cutoffs](#3-set-walking-time-cutoffs-with-min_minutes)
+  - [Filtering by destination](#filtering-by-destination-with-headsign)
+  - [Board-wide options](#board-wide-options)
+  - [Checking your config](#checking-your-config)
+- [How it behaves](#how-it-behaves)
+- [Files](#files)
+- [Credits](#credits)
 
 ## Hardware
 - An [Adafruit Matrix Portal M4](https://www.adafruit.com/product/4745), a small computer
@@ -55,7 +68,7 @@ publish great guides, and are a woman-owned business in NYC. Check them out.
    > **Upgrading from an older version?** It kept Wi-Fi details in `secrets.py`, which is no
    > longer used. Move your network name and password into `settings.toml`, then delete
    > `secrets.py` from the drive. The Adafruit IO account is no longer needed either.
-6. Edit the `PAGES` list in `config.py` to use your stops (see below). The board restarts
+6. Edit `config.py` to use your stops (see [Setting up your stops](#setting-up-your-stops)). The board restarts
    whenever you save a file.
 
 The drive should look like this:
@@ -66,33 +79,171 @@ CIRCUITPY
 └── lib/
 ```
 
-## Choosing stops
-Every stop entry needs the **stop number** (printed on the stop sign and shown in the Transit
-app) and a **route**. Bus stops serve only one direction, so pick the stop on the side of the
-street you board from. Rail stations have a separate stop number for each platform.
+## Setting up your stops
+Everything about what the board shows lives in `src/config.py` (or `config.py` on the
+`CIRCUITPY` drive). The example that ships with it shows Ohio City stops. Replace them with
+your own in three steps:
 
-To search every GCRTA stop from your computer (Python 3.8+, no packages needed):
+1. Find the stop numbers you use.
+2. Group them into pages, such as "INBOUND" and "OUTBOUND".
+3. Set a walking-time cutoff, so the board skips buses you can't reach in time.
+
+### 1. Find your stop numbers
+A stop number is printed on the bus-stop sign and shown in the Transit app. Bus stops serve
+one direction only, so use the stop on the side of the street you board from. At a rail
+station, each platform has its own stop number.
+
+You can also search every GCRTA stop from your computer (Python 3.8+, no packages needed):
 
 ```
-python tools/find_stops.py lorain 117              # stops whose name contains both words
-python tools/find_stops.py lorain --route 22       # only stops served by route 22
-python tools/find_stops.py 7694 --live             # live arrivals at stop 7694 right now
+python tools/find_stops.py lorain fulton             # stops whose name contains both words
+python tools/find_stops.py lorain --route 22         # only stops served by route 22
+python tools/find_stops.py 5810 --live               # live arrivals at stop 5810 right now
 ```
 
-`--live` uses the key from `settings.toml`, so it's a quick way to check a stop before you
-put it on the board.
+Each match lists its stop number, a map link, and every route that stops there with the
+destination it heads toward:
 
-Each page holds any number of entries. The board shows the 3 soonest, and pages rotate
-every `PAGE_SECONDS` (longer if a destination needs more time to scroll). Optional
-per-entry keys are `label` (badge text), `color` (badge color), `min_minutes` (hide buses
-you can't make in time) and `headsign` (only count trips whose destination contains this
-text). All the details are in the comments at the top of `config.py`.
+```
+stop 28902  W 25TH ST-OHIO CITY STATION   (map: https://maps.google.com/?q=41.484709,-81.701188)
+    route RL         toward: Red Line - E. 55th Street
+    route RL         toward: Red Line - Stokes / Windermere
+    route RL         toward: Red Line - Tower City / Public Square
+```
 
-Badge colors, text colors and timing are set near the bottom of `config.py`.
+Use the map link to make sure you have the right side of the street. The first run
+downloads GCRTA's schedule data (about 18 MB), and later runs are instant.
+
+`--live` needs the API key. It reads the key from a `settings.toml` in the repo root,
+`src/` or `tools/`, or you can pass it with `--key`. The key is already in
+`src/settings.toml.example`.
+
+### 2. Build your pages
+`PAGES` is a list of pages, and the board rotates through them. Each page has a `title` and
+a list of `arrivals`. Each entry in `arrivals` is one route at one stop:
+
+```python
+PAGES = [
+    {
+        "title": "TO WORK",
+        "arrivals": [
+            {"stop": 5810, "route": "22", "color": BLUE},
+            {"stop": 11355, "route": "26", "color": GREEN},
+            {"stop": 11355, "route": "71", "color": ORANGE},  # same stop, second route
+        ],
+    },
+    {
+        "title": "HOME",
+        "arrivals": [
+            {"stop": 5811, "route": "22", "color": BLUE},
+            {"stop": 3447, "route": "26", "color": GREEN},
+        ],
+    },
+]
+```
+
+- **Title:** shown in the top-left corner. It has room for about 10 characters.
+- **One entry per route:** if two routes stop at the same stop, add one entry for each.
+- **3 rows per page:** a page can list any number of entries. The board shows the 3 with the
+  soonest arrivals and sorts them soonest first.
+- **One page is fine:** if everything fits on one page, use a single page and the board
+  won't rotate.
+
+**Arrival entry options**
+
+| Key | Required | What it does | Example |
+|---|---|---|---|
+| `stop` | yes | Stop number from the sign or `find_stops.py` | `5810` |
+| `route` | yes | Route as GCRTA writes it. `"26"` also matches the `26-26A` variant. | `"22"`, `"RL"`, `"HL"` |
+| `color` | no | Badge color, `0xRRGGBB` or one of the named colors at the top of `config.py`. Default: gray. | `BLUE`, `0x30A8FF` |
+| `label` | no | Badge text, 1-2 characters. Default: the route. | `"R"` |
+| `min_minutes` | no | Hide arrivals sooner than this many minutes. Default: `MIN_MINUTES` (4). | `10` |
+| `headsign` | no | Only count trips whose destination contains this text (not case-sensitive) | `"airport"` |
+
+The destination next to the badge (such as "WESTGATE TC") comes from the live data. You
+don't set it.
+
+### 3. Set walking-time cutoffs with `min_minutes`
+There's no point showing a bus that leaves in 2 minutes if the stop is a 5-minute walk
+away. The board hides any arrival sooner than the cutoff and shows the next one you can
+make instead.
+
+- **One default:** `MIN_MINUTES` near the bottom of `config.py` applies to every entry
+  (default `4`). Set it to your walk to the nearest stop.
+- **Per entry:** add `"min_minutes"` to a stop that's farther away. It overrides the
+  default for that entry only.
+- **Show everything:** set `"min_minutes": 0`.
+
+```python
+MIN_MINUTES = 3   # the bus stops on my corner are 3 minutes away
+
+{"stop": 5810, "route": "22", "color": BLUE},                       # uses MIN_MINUTES (3)
+{"stop": 28902, "route": "RL", "color": RED, "min_minutes": 10},    # rail station is a 10-minute walk
+```
+
+Minutes are rounded down, and an arrival exactly at the cutoff is shown. With
+`"min_minutes": 10`, a train 10½ minutes away shows as `10`, and one 9 minutes away is
+hidden.
+
+If every arrival on a page is under its cutoff, the page reads `NONE SOON`. If you see that
+often, the cutoff may be too high.
+
+### Filtering by destination with `headsign`
+Some routes send trips from the same stop to different places, such as a branch or a trip
+that ends partway along the route. To show only the trips you want, add `"headsign"` with
+part of the destination name. `find_stops.py` lists each route's destinations after
+"toward:".
+
+```python
+# Inbound Red Line at W 25th: only trains going past downtown to Windermere,
+# skipping the ones that end at Tower City or E. 55th
+{"stop": 28902, "route": "RL", "color": RED, "headsign": "windermere"},
+```
+
+To show both branches as separate rows, add two entries with different `headsign` values,
+and give them different `label`s so you can tell them apart.
+
+### Board-wide options
+These are near the bottom of `config.py`. The defaults work for most boards; the one you're
+most likely to change is `MIN_MINUTES`.
+
+<details>
+<summary>All board-wide settings</summary>
+
+| Setting | Default | What it does |
+|---|---|---|
+| `MIN_MINUTES` | `4` | Default walking-time cutoff for every entry (see above) |
+| `TIMES_PER_ROW` | `1` | `1` shows the next arrival in large digits. `2` shows the next two, like "15,29", in smaller digits with less room for the destination. |
+| `PAGE_SECONDS` | `8` | How long each page stays up. A page with a long destination stays until the name has scrolled around once. |
+| `FETCH_SECONDS` | `30` | How often each stop is refreshed. GCRTA's data updates about every 30 s, so going lower doesn't help. |
+| `STALE_SECONDS` | `180` | A stop that can't be refreshed for this long drops off the board instead of showing old times |
+| `CLOCK_24H` | `True` | `True` shows 15:53, `False` shows 3:53 |
+| `CLOCK_SYNC_MINUTES` | `10` | How often the clock re-syncs |
+| `DEBUG` | `True` | Print request timings and free memory to the serial console |
+| `BIT_DEPTH` | `5` | Color depth, 1-6 |
+| `TITLE_COLOR`, `CLOCK_COLOR`, `DEST_COLOR`, `TIME_COLOR`, `MESSAGE_COLOR` | | Text colors, `0xRRGGBB` |
+
+</details>
+
+The time zone is set in `settings.toml`, not `config.py` (see Setup).
+
+### Checking your config
+- **Mistakes in `config.py`:** it is Python, so a missing comma, quote or bracket stops the
+  board from starting. Connect to the [serial console](https://learn.adafruit.com/welcome-to-circuitpython/kattni-connecting-to-the-serial-console)
+  to see the error and the line it's on.
+- **Testing a stop:** before putting a stop on the board, run
+  `python tools/find_stops.py <stop> --live --route <route>`. If it lists arrivals, the board
+  will show them too, as long as they're past your cutoff.
+- **A row never appears:** check the stop number (right side of the street?) and the
+  `route` text, and make sure `headsign` matches part of a destination listed by
+  `find_stops.py`.
 
 ## How it behaves
+<details>
+<summary>Refresh, scrolling, messages, clock and recovery</summary>
+
 - **Refresh:** each stop is refreshed every `FETCH_SECONDS` (30 s by default), one at a
-  time. Requests run in small pieces between scroll steps, so text keeps moving while data
+  time, and each request returns a few KB of JSON. Requests run in small pieces between scroll steps, so text keeps moving while data
   loads. A small dot left of the clock lights up during a request.
 - **Scrolling:** destinations too long for their space pause briefly, then loop
   continuously. A page stays up until its longest destination has gone around once.
@@ -108,7 +259,12 @@ Badge colors, text colors and timing are set near the bottom of `config.py`.
 - **Debugging:** with `DEBUG = True`, the serial console shows each request's time, the
   free memory and how smoothly text is scrolling.
 
+</details>
+
 ## Files
+<details>
+<summary>What each file does</summary>
+
 | File | Purpose |
 |---|---|
 | `src/code.py` | Startup, Wi-Fi, main loop |
@@ -120,3 +276,15 @@ Badge colors, text colors and timing are set near the bottom of `config.py`.
 | `src/lib/` | Fonts and CircuitPython 10 libraries |
 | `tools/find_stops.py` | Stop finder, runs on your computer |
 | `tools/preview.py` | For developers changing `screen.py`: draws the screen to a PNG on your computer |
+
+</details>
+
+## Credits
+Arrival data is provided by the Greater Cleveland Regional Transit Authority (GCRTA)
+through [Swiftly](https://www.goswift.ly/), its real-time data provider, under GCRTA's
+[developer license](https://www.riderta.com/developers). This project is not affiliated
+with or endorsed by GCRTA.
+
+CircuitPython is a friendly version of Python for small devices, made by
+[Adafruit](https://www.adafruit.com/), who make and sell educational and hobby electronics,
+publish great guides, and are a woman-owned business in NYC. Check them out.
